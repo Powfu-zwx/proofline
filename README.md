@@ -1,5 +1,7 @@
 # Proofline
 
+[![CI](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml/badge.svg)](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml)
+
 Proofline is a model-agnostic protocol and reference implementation for verifiable AI runs.
 
 A run bundle records the inputs, code revision, model/tool steps, outputs, costs, redactions, and hashes needed to replay, diff, and audit LLM or agent executions. The core is a versioned schema; SDKs, storage backends, and framework adapters are replaceable layers around it.
@@ -20,6 +22,29 @@ proofline diff artifacts/demo.run.json artifacts/agent-sdk.run.json
 ```
 
 For SDK usage, see `examples/rag_citation_check.py` and `examples/code_fix_agent.py`.
+
+### OpenAI integration
+
+```bash
+python -m pip install -e ".[openai]"
+```
+
+```python
+from openai import OpenAI
+from proofline import RunRecorder
+from proofline.openai import wrap
+
+with RunRecorder(out_path="artifacts/openai.run.json") as recorder:
+    client = wrap(OpenAI(), recorder)
+    client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "ping"}],
+    )
+```
+
+Each `chat.completions.create` call is recorded as a `model` step with the
+request as input, the response as output, and token usage as cost. Run
+`examples/openai_chat.py` for an end-to-end recorded call.
 
 ## Core invariant
 
