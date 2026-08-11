@@ -134,5 +134,82 @@ class OpenAIIntegrationTest(unittest.TestCase):
             self.assertIn("/steps/0/input/messages/0/content", bundle["redactions"])
 
 
+async def _fake_async_stream():
+    for token in ("he", "llo"):
+        delta = SimpleNamespace(content=token)
+        yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+
+
+class AsyncOpenAIIntegrationTest(unittest.IsolatedAsyncioTestCase):
+    def _client(self, acreate) -> _FakeClient:
+        client = _FakeClient()
+        client.chat.completions.create = acreate
+        return client
+
+    async def test_async_create_records_model_step_with_cost(self) -> None:
+        async def acreate(**kwargs):
+            return _FakeResponse()
+
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(self._client(acreate), recorder)
+        response = await wrapped.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "ping"}],
+        )
+        self.assertEqual(response.model_dump()["choices"][0]["message"]["content"], "pong")
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual(step["kind"], "model")
+        self.assertEqual(step["cost"]["total_tokens"], 18)
+        self.assertEqual(step["metadata"]["model"], "gpt-4o-mini")
+
+    async def test_async_stream_records_full_text(self) -> None:
+        async def acreate(**kwargs):
+            return _fake_async_stream()
+
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(self._client(acreate), recorder)
+        stream = await wrapped.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "ping"}],
+            stream=True,
+        )
+        collected = [chunk.choices[0].delta.content async for chunk in stream]
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual("".join(collected), "hello")
+        self.assertEqual(step["output"]["content"], "hello")
+        self.assertFalse(step["output"]["truncated"])
+
+    async def test_async_abandoned_stream_marks_truncated(self) -> None:
+        async def acreate(**kwargs):
+            return _fake_async_stream()
+
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(self._client(acreate), recorder)
+        stream = await wrapped.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "ping"}],
+            stream=True,
+        )
+        first = await anext(stream)
+        self.assertEqual(first.choices[0].delta.content, "he")
+        await stream.aclose()
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual(step["status"], "ok")
+        self.assertTrue(step["output"]["truncated"])
+        self.assertEqual(step["output"]["content"], "he")
+
+    async def test_async_stream_create_failure_records_error_step(self) -> None:
+        async def acreate(**kwargs):
+            raise RuntimeError("api down")
+
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(self._client(acreate), recorder)
+        with self.assertRaises(RuntimeError):
+            await wrapped.chat.completions.create(model="gpt-4o-mini", messages=[], stream=True)
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual(step["status"], "error")
+        self.assertEqual(step["error"], "RuntimeError: api down")
+
+
 if __name__ == "__main__":
     unittest.main()

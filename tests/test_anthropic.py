@@ -104,5 +104,51 @@ class AnthropicIntegrationTest(unittest.TestCase):
             self.assertEqual(step["error"], "RuntimeError: api down")
 
 
+class AsyncAnthropicIntegrationTest(unittest.IsolatedAsyncioTestCase):
+    async def test_async_create_records_model_step_with_cost(self) -> None:
+        async def acreate(**kwargs):
+            return _FakeResponse()
+
+        client = _FakeClient()
+        client.messages.create = acreate
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(client, recorder)
+        response = await wrapped.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=256,
+            messages=[{"role": "user", "content": "ping"}],
+        )
+        self.assertEqual(response.model_dump()["content"][0]["text"], "pong")
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual(step["cost"]["total_tokens"], 13)
+        self.assertEqual(step["metadata"]["model"], "claude-sonnet-4-5")
+
+    async def test_async_stream_records_text_deltas(self) -> None:
+        async def astream():
+            for token in ("he", "llo"):
+                yield SimpleNamespace(
+                    type="content_block_delta", delta=SimpleNamespace(text=token)
+                )
+
+        async def acreate(**kwargs):
+            return astream()
+
+        client = _FakeClient()
+        client.messages.create = acreate
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(client, recorder)
+        stream = await wrapped.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=256,
+            messages=[{"role": "user", "content": "ping"}],
+            stream=True,
+        )
+        collected = [event.delta.text async for event in stream]
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual("".join(collected), "hello")
+        self.assertEqual(step["output"]["content"], "hello")
+        self.assertFalse(step["output"]["truncated"])
+
+
 if __name__ == "__main__":
     unittest.main()
