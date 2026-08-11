@@ -6,6 +6,7 @@ Notable changes to proofline. The format follows [Keep a Changelog](https://keep
 
 ### Added
 
+- `proofline --version`.
 - `proofline.testing.assert_matches_baseline`: snapshot-style baseline assertion for test suites, with `PROOFLINE_UPDATE_BASELINES=1` to re-record.
 - Release workflow publishing to PyPI via trusted publishing on version tags.
 - `proofline run` records the child process stdout/stderr with an inline cap and a SHA-256 digest of the full text, and echoes captured streams after completion.

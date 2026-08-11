@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .diff import diff_bundles
+from .model import PACKAGE_VERSION
 from .policy import PolicyViolation
 from .recorder import RunRecorder
 from .verify import VerificationError, verify_bundle
@@ -36,6 +37,9 @@ def _echo(stream: Any, text: str) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="proofline")
+    parser.add_argument(
+        "--version", action="version", version=f"proofline {PACKAGE_VERSION}"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run", help="execute a command and record a process bundle")
