@@ -58,6 +58,29 @@ class OpenAIIntegrationTest(unittest.TestCase):
             self.assertEqual(step["metadata"]["model"], "gpt-4o-mini")
             self.assertEqual(verify_bundle(out), [])
 
+    def test_stream_records_full_text(self) -> None:
+        def fake_stream():
+            for token in ("he", "llo"):
+                delta = SimpleNamespace(content=token)
+                yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = _FakeClient()
+            client.chat.completions.create = lambda **kwargs: fake_stream()
+            recorder = RunRecorder(cwd=directory, argv=["demo"])
+            wrapped = wrap(client, recorder)
+            stream = wrapped.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "ping"}],
+                stream=True,
+            )
+            collected = [getattr(c.choices[0].delta, "content", "") for c in stream]
+            bundle = recorder.finalize()
+            step = bundle["steps"][0]
+            self.assertEqual("".join(collected), "hello")
+            self.assertEqual(step["output"]["content"], "hello")
+            self.assertTrue(step["output"]["streamed"])
+
     def test_api_key_in_messages_is_redacted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             client = _FakeClient()

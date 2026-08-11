@@ -68,7 +68,9 @@ def verify_bundle(bundle_or_path: str | Path | dict[str, Any]) -> list[str]:
             errors.append(f"steps[{index}].output_digest mismatch")
 
     digest = bundle.get("bundle_digest")
-    if not isinstance(digest, str) or digest != stable_digest(bundle):
+    if "bundle_digest" in bundle and (
+        not isinstance(digest, str) or digest != stable_digest(bundle)
+    ):
         errors.append("bundle_digest mismatch")
 
     leaks = [

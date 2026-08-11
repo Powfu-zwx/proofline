@@ -45,7 +45,7 @@ def contains_unredacted_secret(value: Any, pointer: str = "") -> list[str]:
     if isinstance(value, dict):
         for key, child in value.items():
             child_pointer = f"{pointer}/{_escape_pointer(str(key))}"
-            if SECRET_KEY.search(str(key)) and child not in (None, REDACTED):
+            if SECRET_KEY.search(str(key)) and child is not None and child != REDACTED:
                 leaks.append(child_pointer)
             leaks.extend(contains_unredacted_secret(child, child_pointer))
     elif isinstance(value, list):

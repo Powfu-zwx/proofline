@@ -33,6 +33,15 @@ class RunRecorderTest(unittest.TestCase):
             self.assertTrue(out.exists())
             self.assertEqual(verify_bundle(out), [])
 
+    def test_redact_handles_nested_secret_containers(self) -> None:
+        recorder = RunRecorder(
+            cwd=".",
+            argv=["demo"],
+            metadata={"nested": {"api_key": {"value": "x"}, "list": ["token_abc"]}},
+        )
+        self.assertEqual(recorder.metadata["nested"]["api_key"], "[REDACTED]")
+        self.assertEqual(recorder.metadata["nested"]["list"], ["token_abc"])
+
     def test_stable_digest_ignores_volatile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             def record() -> dict:

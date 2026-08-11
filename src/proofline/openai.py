@@ -35,8 +35,9 @@ class _CompletionsProxy:
 
     def create(self, **kwargs: Any) -> Any:
         model = kwargs.get("model")
-        step_input = {key: value for key, value in kwargs.items()}
-        with self._recorder.step("model", "chat.completions.create", input=step_input) as handle:
+        if kwargs.get("stream"):
+            return self._create_stream(kwargs, model)
+        with self._recorder.step("model", "chat.completions.create", input=kwargs) as handle:
             response = self._completions.create(**kwargs)
             handle["output"] = response.model_dump(mode="json")
             usage = getattr(response, "usage", None)
@@ -48,6 +49,35 @@ class _CompletionsProxy:
                 }
             handle["metadata"]["model"] = model
             return response
+
+    def _create_stream(self, kwargs: dict[str, Any], model: Any) -> Any:
+        recorder_step = self._recorder.step("model", "chat.completions.create", input=kwargs)
+        handle = recorder_step.__enter__()
+        try:
+            stream = self._completions.create(**kwargs)
+        except BaseException:
+            recorder_step.__exit__(None, None, None)
+            raise
+        return self._wrap_stream(stream, handle, model, recorder_step)
+
+    def _wrap_stream(self, stream: Any, handle: dict[str, Any], model: Any, step: Any) -> Any:
+        chunks: list[str] = []
+        try:
+            for chunk in stream:
+                choices = getattr(chunk, "choices", None)
+                if choices:
+                    content = getattr(choices[0].delta, "content", None)
+                    if content:
+                        chunks.append(content)
+                yield chunk
+            handle["output"] = {"streamed": True, "content": "".join(chunks)}
+            handle["metadata"]["model"] = model
+        except BaseException as exc:
+            handle["output"] = {"streamed": True, "content": "".join(chunks)}
+            handle["metadata"]["model"] = model
+            step.__exit__(type(exc), exc, exc.__traceback__)
+            return
+        step.__exit__(None, None, None)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._completions, name)

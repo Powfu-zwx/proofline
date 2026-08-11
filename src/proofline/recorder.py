@@ -53,7 +53,6 @@ class RunRecorder:
         self.cwd = Path(cwd or Path.cwd()).resolve()
         self.out_path = Path(out_path) if out_path else None
         self.run_id = str(uuid.uuid4())
-        self.started_at = utc_now()
         self.steps: list[dict[str, Any]] = []
         self.metadata, metadata_redactions = redact(metadata or {})
         self.redactions = _qualify_redactions(metadata_redactions, "/metadata")
