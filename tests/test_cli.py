@@ -29,30 +29,59 @@ def _record_bundle(directory: str, name: str) -> Path:
 
 
 class CliRunTest(unittest.TestCase):
-    def test_run_records_and_verifies(self) -> None:
+    def test_run_records_output_and_verifies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
-            code, _, _ = _run_main(
-                ["run", "--out", str(out), "--", sys.executable, "-c", "pass"]
+            code, stdout, _ = _run_main(
+                ["run", "--out", str(out), "--", sys.executable, "-c", "print('hi')"]
             )
             self.assertEqual(code, 0)
+            self.assertIn("hi", stdout)
             self.assertEqual(verify_bundle(out), [])
             step = read_bundle(out)["steps"][0]
             self.assertEqual(step["kind"], "process")
             self.assertEqual(step["status"], "ok")
-            self.assertEqual(step["output"], {"returncode": 0})
+            self.assertEqual(step["output"]["returncode"], 0)
+            self.assertEqual(step["output"]["stdout"]["text"], "hi\n")
+            self.assertFalse(step["output"]["stdout"]["truncated"])
+            self.assertEqual(step["output"]["stderr"]["length"], 0)
 
     def test_run_propagates_exit_code_and_records_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
-            code, _, _ = _run_main(
-                ["run", "--out", str(out), "--", sys.executable, "-c", "raise SystemExit(3)"]
+            child = "import sys; sys.stderr.write('boom'); sys.exit(3)"
+            code, _, stderr = _run_main(
+                ["run", "--out", str(out), "--", sys.executable, "-c", child]
             )
             self.assertEqual(code, 3)
+            self.assertIn("boom", stderr)
             self.assertEqual(verify_bundle(out), [])
             step = read_bundle(out)["steps"][0]
             self.assertEqual(step["status"], "error")
-            self.assertEqual(step["output"], {"returncode": 3})
+            self.assertEqual(step["output"]["returncode"], 3)
+            self.assertEqual(step["output"]["stderr"]["text"], "boom")
+
+    def test_run_truncates_large_output_but_digests_all_of_it(self) -> None:
+        import hashlib
+
+        from proofline.cli import OUTPUT_CAP
+
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "run.json"
+            child = f"print('x' * {OUTPUT_CAP * 2})"
+            code, _, _ = _run_main(
+                ["run", "--out", str(out), "--", sys.executable, "-c", child]
+            )
+            self.assertEqual(code, 0)
+            self.assertEqual(verify_bundle(out), [])
+            recorded = read_bundle(out)["steps"][0]["output"]["stdout"]
+            full_text = "x" * (OUTPUT_CAP * 2) + "\n"
+            self.assertTrue(recorded["truncated"])
+            self.assertEqual(len(recorded["text"]), OUTPUT_CAP)
+            self.assertEqual(recorded["length"], len(full_text))
+            self.assertEqual(
+                recorded["sha256"], hashlib.sha256(full_text.encode("utf-8")).hexdigest()
+            )
 
     def test_run_without_command_errors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

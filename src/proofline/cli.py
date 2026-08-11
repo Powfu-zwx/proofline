@@ -1,14 +1,28 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from .diff import diff_bundles
 from .policy import PolicyViolation
 from .recorder import RunRecorder
 from .verify import VerificationError, verify_bundle
+
+# Inline cap for recorded process output; the digest always covers the full text.
+OUTPUT_CAP = 10_000
+
+
+def _captured(text: str) -> dict[str, Any]:
+    return {
+        "text": text[:OUTPUT_CAP],
+        "truncated": len(text) > OUTPUT_CAP,
+        "length": len(text),
+        "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,9 +55,22 @@ def _cmd_run(args: argparse.Namespace) -> int:
     with RunRecorder(argv=argv, out_path=args.out, metadata=metadata) as recorder:
         process_name = Path(argv[0]).name or argv[0]
         with recorder.step("process", process_name, input={"argv": argv}) as handle:
-            completed = subprocess.run(argv, check=False)
+            completed = subprocess.run(
+                argv,
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
             returncode = completed.returncode
-            handle["output"] = {"returncode": returncode}
+            sys.stdout.write(completed.stdout)
+            sys.stderr.write(completed.stderr)
+            handle["output"] = {
+                "returncode": returncode,
+                "stdout": _captured(completed.stdout),
+                "stderr": _captured(completed.stderr),
+            }
             if returncode:
                 handle["status"] = "error"
                 handle["error"] = f"process exited with {returncode}"
