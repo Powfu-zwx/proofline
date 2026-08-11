@@ -61,6 +61,21 @@ class CliRunTest(unittest.TestCase):
             self.assertEqual(step["output"]["returncode"], 3)
             self.assertEqual(step["output"]["stderr"]["text"], "boom")
 
+    def test_run_echo_survives_narrow_console_encoding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "run.json"
+            narrow_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+            child = "print('caf\\u00e9')"
+            with contextlib.redirect_stdout(narrow_stdout), contextlib.redirect_stderr(
+                io.StringIO()
+            ):
+                code = main(["run", "--out", str(out), "--", sys.executable, "-c", child])
+            self.assertEqual(code, 0)
+            self.assertEqual(verify_bundle(out), [])
+            step = read_bundle(out)["steps"][0]
+            self.assertEqual(step["status"], "ok")
+            self.assertEqual(step["output"]["stdout"]["text"], "caf\u00e9\n")
+
     def test_run_truncates_large_output_but_digests_all_of_it(self) -> None:
         import hashlib
 

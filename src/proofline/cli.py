@@ -25,6 +25,15 @@ def _captured(text: str) -> dict[str, Any]:
     }
 
 
+def _echo(stream: Any, text: str) -> None:
+    """Echo captured child output without ever failing the recorded run."""
+    try:
+        stream.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "ascii"
+        stream.write(text.encode(encoding, errors="replace").decode(encoding))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="proofline")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -64,13 +73,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 errors="replace",
             )
             returncode = completed.returncode
-            sys.stdout.write(completed.stdout)
-            sys.stderr.write(completed.stderr)
             handle["output"] = {
                 "returncode": returncode,
                 "stdout": _captured(completed.stdout),
                 "stderr": _captured(completed.stderr),
             }
+            _echo(sys.stdout, completed.stdout)
+            _echo(sys.stderr, completed.stderr)
             if returncode:
                 handle["status"] = "error"
                 handle["error"] = f"process exited with {returncode}"
