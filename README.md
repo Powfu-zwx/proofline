@@ -112,7 +112,7 @@ with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
   "schema_version": "0.1",
   "run_id": "6f0c0f1e-…",
   "created_at": "2026-08-11T15:00:00.000Z",
-  "actor": {"type": "human+agent", "name": "powfu", "version": "0.1.0"},
+  "actor": {"type": "human+agent", "name": "powfu", "version": "0.1.1"},
   "project": {"name": "proofline", "revision": "9dd5f0a…", "dirty": false},
   "invocation": {"argv": ["python", "agent.py"], "cwd": "…", "env_keys": ["PATH"], "python": "3.11.15"},
   "steps": [
