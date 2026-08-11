@@ -107,6 +107,16 @@ class CliRunTest(unittest.TestCase):
             self.assertFalse(out.exists())
 
 
+class CliVersionTest(unittest.TestCase):
+    def test_version_flag_prints_version_and_exits_zero(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            with self.assertRaises(SystemExit) as ctx:
+                main(["--version"])
+        self.assertEqual(ctx.exception.code, 0)
+        self.assertIn("proofline", stdout.getvalue())
+
+
 class CliVerifyTest(unittest.TestCase):
     def test_verify_ok(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
