@@ -49,6 +49,13 @@ class RunRecorderTest(unittest.TestCase):
                 pass
         self.assertEqual(recorder.steps, [])
 
+    def test_unserializable_input_fails_fast(self) -> None:
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        with self.assertRaisesRegex(TypeError, "JSON-serializable"):
+            with recorder.step("custom", "draft", input={"payload": object()}):
+                pass
+        self.assertEqual(recorder.steps, [])
+
     def test_stable_digest_ignores_volatile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             def record() -> dict:

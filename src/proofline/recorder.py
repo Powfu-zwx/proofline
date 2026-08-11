@@ -11,7 +11,15 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from .model import PACKAGE_VERSION, SCHEMA_VERSION, STEP_KINDS, sha256_json, stable_digest, utc_now
+from .model import (
+    PACKAGE_VERSION,
+    SCHEMA_VERSION,
+    STEP_KINDS,
+    canonical_json,
+    sha256_json,
+    stable_digest,
+    utc_now,
+)
 from .policy import Policy
 from .redact import redact
 from .storage import write_bundle
@@ -94,6 +102,12 @@ class RunRecorder:
     ) -> Iterator[dict[str, Any]]:
         if kind not in STEP_KINDS:
             raise ValueError(f"invalid step kind {kind!r}; expected one of {sorted(STEP_KINDS)}")
+        # Fail here, not in the finally block, where a serialization error would
+        # surface as a confusing crash and could mask an in-flight exception.
+        try:
+            canonical_json(input)
+        except TypeError as exc:
+            raise TypeError(f"step input must be JSON-serializable: {exc}") from exc
         started_at = utc_now()
         handle: dict[str, Any] = {
             "output": None,
