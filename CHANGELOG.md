@@ -4,6 +4,11 @@ Notable changes to proofline. The format follows [Keep a Changelog](https://keep
 
 ## Unreleased
 
+### Changed
+
+- Canonical JSON is strict: `NaN` and `Infinity` are rejected anywhere in a bundle, keeping digests portable across languages (spec updated accordingly).
+- Redaction pointer resolution follows RFC 6901: array indices with leading zeros no longer resolve.
+
 ### Added
 
 - `proofline --version`.

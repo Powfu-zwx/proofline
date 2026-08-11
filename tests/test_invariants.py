@@ -16,6 +16,12 @@ class InvariantTest(unittest.TestCase):
         right = {"a": {"x": 3, "y": [1, {"k": 2}]}, "b": 1}
         self.assertEqual(canonical_json(left), canonical_json(right))
 
+    def test_canonical_json_rejects_non_strict_json(self) -> None:
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    canonical_json({"cost": value})
+
     def test_redaction_is_idempotent_on_values(self) -> None:
         value = {
             "api_key": "sk-abcdefghijklmnop123456",

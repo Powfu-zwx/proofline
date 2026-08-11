@@ -32,7 +32,10 @@ def utc_now() -> str:
 
 
 def canonical_json(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    """Strict canonical JSON; NaN and Infinity are rejected to keep bundles portable."""
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    )
 
 
 def sha256_json(value: Any) -> str:

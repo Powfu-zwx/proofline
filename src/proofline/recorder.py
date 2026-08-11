@@ -106,8 +106,10 @@ class RunRecorder:
         # surface as a confusing crash and could mask an in-flight exception.
         try:
             canonical_json(input)
-        except TypeError as exc:
-            raise TypeError(f"step input must be JSON-serializable: {exc}") from exc
+        except (TypeError, ValueError) as exc:
+            raise TypeError(
+                f"step input must be strict-JSON-serializable (no NaN/Infinity): {exc}"
+            ) from exc
         started_at = utc_now()
         handle: dict[str, Any] = {
             "output": None,

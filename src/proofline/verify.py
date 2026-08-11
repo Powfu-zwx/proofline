@@ -33,7 +33,10 @@ def _pointer_resolves(document: Any, pointer: str) -> bool:
                 return False
             node = node[part]
         elif isinstance(node, list):
-            if not part.isdigit() or int(part) >= len(node):
+            # RFC 6901: array indices are "0" or digits without a leading zero.
+            if not part.isdigit() or (len(part) > 1 and part.startswith("0")):
+                return False
+            if int(part) >= len(node):
                 return False
             node = node[int(part)]
         else:

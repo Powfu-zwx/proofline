@@ -56,6 +56,13 @@ class RunRecorderTest(unittest.TestCase):
                 pass
         self.assertEqual(recorder.steps, [])
 
+    def test_nan_input_fails_fast(self) -> None:
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        with self.assertRaisesRegex(TypeError, "NaN"):
+            with recorder.step("custom", "draft", input={"cost": float("nan")}):
+                pass
+        self.assertEqual(recorder.steps, [])
+
     def test_stable_digest_ignores_volatile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             def record() -> dict:

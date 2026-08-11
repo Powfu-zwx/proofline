@@ -73,6 +73,13 @@ class VerifyNegativeTest(unittest.TestCase):
         errors = verify_bundle(_reseal(bundle))
         self.assertEqual(errors, ["redaction path does not resolve: /steps/9/input"])
 
+    def test_array_index_with_leading_zero_does_not_resolve(self) -> None:
+        """RFC 6901 forbids leading zeros in array indices."""
+        bundle = _bundle()
+        bundle["redactions"] = ["/steps/00"]
+        errors = verify_bundle(_reseal(bundle))
+        self.assertEqual(errors, ["redaction path does not resolve: /steps/00"])
+
     def test_redactions_must_be_string_array(self) -> None:
         bundle = _bundle()
         bundle["redactions"] = "nope"

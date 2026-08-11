@@ -13,7 +13,7 @@ A run bundle is a JSON document describing one bounded AI execution. It is desig
 
 ## Stable digest
 
-`bundle_digest` is SHA-256 over canonical JSON of the bundle after removing `run_id`, `created_at`, `bundle_digest`, and every step `started_at` / `ended_at`. Canonical JSON uses sorted keys, UTF-8, no insignificant whitespace, and `ensure_ascii=false`.
+`bundle_digest` is SHA-256 over canonical JSON of the bundle after removing `run_id`, `created_at`, `bundle_digest`, and every step `started_at` / `ended_at`. Canonical JSON uses sorted keys, UTF-8, no insignificant whitespace, and `ensure_ascii=false`. Canonical JSON must be strict JSON: `NaN` and `Infinity` are invalid anywhere in a bundle.
 
 ## Verification
 

@@ -38,6 +38,15 @@ class DiffTest(unittest.TestCase):
             differences = diff_bundles(left, right)
             self.assertTrue(any("$.steps[0].output.y" in item for item in differences))
 
+    def test_semantic_diff_reports_type_key_and_length_changes(self) -> None:
+        left = {"a": 1, "only_left": True, "items": [1, 2], "steps": []}
+        right = {"a": "1", "only_right": True, "items": [1], "steps": []}
+        differences = diff_bundles(left, right)
+        self.assertIn("$.a: type int != str", differences)
+        self.assertIn("$.only_left: missing in right", differences)
+        self.assertIn("$.only_right: missing in left", differences)
+        self.assertIn("$.items: length 2 != 1", differences)
+
 
 if __name__ == "__main__":
     unittest.main()
