@@ -77,7 +77,7 @@ def test_pipeline_behavior():
     assert_matches_baseline(recorder.finalize(), "tests/baselines/pipeline.run.json")
 ```
 
-Record or intentionally update the baseline with `PROOFLINE_UPDATE_BASELINES=1 pytest`, review the bundle diff in the PR, and commit it. The candidate is verified before comparison, so a tampered or malformed bundle fails regardless of the baseline. The update variable itself is excluded from the comparison, so recording a baseline never makes it differ from the next run.
+Record or intentionally update the baseline with `PROOFLINE_UPDATE_BASELINES=1 pytest`, review the bundle diff in the PR, and commit it. Candidate and baseline are both verified before comparison, so a tampered or malformed bundle on either side fails the test — including a baseline edited by hand instead of re-recorded. The update variable itself is excluded from the comparison, so recording a baseline never makes it differ from the next run.
 
 ## What to do with expected variance
 

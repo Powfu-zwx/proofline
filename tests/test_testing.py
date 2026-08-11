@@ -58,6 +58,19 @@ class BaselineAssertionTest(unittest.TestCase):
             with self.assertRaises(VerificationError):
                 assert_matches_baseline(tampered, baseline)
 
+    def test_hand_edited_baseline_fails_verification(self) -> None:
+        from proofline.storage import read_bundle, write_bundle
+
+        with tempfile.TemporaryDirectory() as directory:
+            baseline = Path(directory) / "baseline.run.json"
+            with mock.patch.dict("os.environ", {UPDATE_ENV: "1"}):
+                assert_matches_baseline(_record(directory, 2), baseline)
+            forged = read_bundle(baseline)
+            forged["steps"][0]["output"] = {"y": 3}
+            write_bundle(baseline, forged)
+            with self.assertRaises(VerificationError):
+                assert_matches_baseline(_record(directory, 3), baseline)
+
 
 if __name__ == "__main__":
     unittest.main()
