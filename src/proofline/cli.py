@@ -13,26 +13,30 @@ from .policy import PolicyViolation
 from .recorder import RunRecorder
 from .verify import VerificationError, verify_bundle
 
-# Inline cap for recorded process output; the digest always covers the full text.
+# Inline cap for the recorded text preview; the digest always covers the exact bytes.
 OUTPUT_CAP = 10_000
 
 
-def _captured(text: str) -> dict[str, Any]:
+def _captured(raw: bytes) -> dict[str, Any]:
+    """Evidence for one output stream: byte digest plus a capped UTF-8 preview."""
+    text = raw.decode("utf-8", errors="replace")
     return {
         "text": text[:OUTPUT_CAP],
         "truncated": len(text) > OUTPUT_CAP,
-        "length": len(text),
-        "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "length": len(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
     }
 
 
-def _echo(stream: Any, text: str) -> None:
-    """Echo captured child output without ever failing the recorded run."""
-    try:
-        stream.write(text)
-    except UnicodeEncodeError:
-        encoding = getattr(stream, "encoding", None) or "ascii"
-        stream.write(text.encode(encoding, errors="replace").decode(encoding))
+def _echo(stream: Any, raw: bytes) -> None:
+    """Echo captured child output byte-exact, never failing the recorded run."""
+    buffer = getattr(stream, "buffer", None)
+    if buffer is None:
+        stream.write(raw.decode("utf-8", errors="replace"))
+        return
+    stream.flush()
+    buffer.write(raw)
+    buffer.flush()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,14 +72,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     with RunRecorder(argv=argv, out_path=args.out, metadata=metadata) as recorder:
         process_name = Path(argv[0]).name or argv[0]
         with recorder.step("process", process_name, input={"argv": argv}) as handle:
-            completed = subprocess.run(
-                argv,
-                check=False,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
+            completed = subprocess.run(argv, check=False, capture_output=True)
             returncode = completed.returncode
             handle["output"] = {
                 "returncode": returncode,

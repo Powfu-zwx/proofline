@@ -32,8 +32,9 @@ class CliRunTest(unittest.TestCase):
     def test_run_records_output_and_verifies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
+            child = "import sys; sys.stdout.buffer.write(b'hi\\n')"
             code, stdout, _ = _run_main(
-                ["run", "--out", str(out), "--", sys.executable, "-c", "print('hi')"]
+                ["run", "--out", str(out), "--", sys.executable, "-c", child]
             )
             self.assertEqual(code, 0)
             self.assertIn("hi", stdout)
@@ -49,7 +50,7 @@ class CliRunTest(unittest.TestCase):
     def test_run_propagates_exit_code_and_records_error(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
-            child = "import sys; sys.stderr.write('boom'); sys.exit(3)"
+            child = "import sys; sys.stderr.buffer.write(b'boom'); sys.exit(3)"
             code, _, stderr = _run_main(
                 ["run", "--out", str(out), "--", sys.executable, "-c", child]
             )
@@ -61,11 +62,11 @@ class CliRunTest(unittest.TestCase):
             self.assertEqual(step["output"]["returncode"], 3)
             self.assertEqual(step["output"]["stderr"]["text"], "boom")
 
-    def test_run_echo_survives_narrow_console_encoding(self) -> None:
+    def test_run_recording_and_echo_are_encoding_safe(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
             narrow_stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
-            child = "print('caf\\u00e9')"
+            child = "import sys; sys.stdout.buffer.write('caf\\u00e9\\n'.encode('utf-8'))"
             with contextlib.redirect_stdout(narrow_stdout), contextlib.redirect_stderr(
                 io.StringIO()
             ):
@@ -76,27 +77,25 @@ class CliRunTest(unittest.TestCase):
             self.assertEqual(step["status"], "ok")
             self.assertEqual(step["output"]["stdout"]["text"], "caf\u00e9\n")
 
-    def test_run_truncates_large_output_but_digests_all_of_it(self) -> None:
+    def test_run_truncates_preview_but_digests_all_bytes(self) -> None:
         import hashlib
 
         from proofline.cli import OUTPUT_CAP
 
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
-            child = f"print('x' * {OUTPUT_CAP * 2})"
+            child = f"import sys; sys.stdout.buffer.write(b'x' * {OUTPUT_CAP * 2})"
             code, _, _ = _run_main(
                 ["run", "--out", str(out), "--", sys.executable, "-c", child]
             )
             self.assertEqual(code, 0)
             self.assertEqual(verify_bundle(out), [])
             recorded = read_bundle(out)["steps"][0]["output"]["stdout"]
-            full_text = "x" * (OUTPUT_CAP * 2) + "\n"
+            full_bytes = b"x" * (OUTPUT_CAP * 2)
             self.assertTrue(recorded["truncated"])
             self.assertEqual(len(recorded["text"]), OUTPUT_CAP)
-            self.assertEqual(recorded["length"], len(full_text))
-            self.assertEqual(
-                recorded["sha256"], hashlib.sha256(full_text.encode("utf-8")).hexdigest()
-            )
+            self.assertEqual(recorded["length"], len(full_bytes))
+            self.assertEqual(recorded["sha256"], hashlib.sha256(full_bytes).hexdigest())
 
     def test_run_without_command_errors(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

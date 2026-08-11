@@ -9,7 +9,7 @@ Notable changes to proofline. The format follows [Keep a Changelog](https://keep
 - `proofline --version`.
 - `proofline.testing.assert_matches_baseline`: snapshot-style baseline assertion for test suites, with `PROOFLINE_UPDATE_BASELINES=1` to re-record.
 - Release workflow publishing to PyPI via trusted publishing on version tags.
-- `proofline run` records the child process stdout/stderr with an inline cap and a SHA-256 digest of the full text, and echoes captured streams after completion.
+- `proofline run` records the child process stdout/stderr: a SHA-256 digest of the exact bytes plus a capped UTF-8 text preview, echoed byte-exact after completion.
 - `wrap()` in the OpenAI and Anthropic integrations detects `AsyncOpenAI` / `AsyncAnthropic` clients and records async calls, including async streaming with the same exactly-once and truncation semantics as the sync path.
 - CI regression gate guide (`docs/ci-regression.md`) and a README FAQ on positioning and guarantees.
 - Contributor guide, security policy with explicit redaction boundaries, and issue/PR templates.
