@@ -63,6 +63,22 @@ jobs:
 
 When a change is intentional, the fix is one command: re-record the baseline and commit it. The PR diff then shows reviewers exactly what behavior changed, in the bundle itself.
 
+## In pytest (or any test runner)
+
+`proofline.testing.assert_matches_baseline` wraps the same gate as a snapshot-style assertion:
+
+```python
+from proofline import RunRecorder
+from proofline.testing import assert_matches_baseline
+
+def test_pipeline_behavior():
+    recorder = RunRecorder(argv=["pytest"])
+    run_pipeline(recorder)
+    assert_matches_baseline(recorder.finalize(), "tests/baselines/pipeline.run.json")
+```
+
+Record or intentionally update the baseline with `PROOFLINE_UPDATE_BASELINES=1 pytest`, review the bundle diff in the PR, and commit it. The candidate is verified before comparison, so a tampered or malformed bundle fails regardless of the baseline. The update variable itself is excluded from the comparison, so recording a baseline never makes it differ from the next run.
+
 ## What to do with expected variance
 
 If part of your pipeline is legitimately nondeterministic (live retrieval, sampling above zero), split the pipeline: gate the deterministic stages with `diff`, and assert only invariants (citations resolve, schema of the answer, cost ceilings) on the nondeterministic ones. A bundle records both kinds of steps either way, so the audit trail stays complete even where the gate is soft.
