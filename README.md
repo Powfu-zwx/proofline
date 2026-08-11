@@ -10,7 +10,7 @@ A run bundle is a single JSON document that records the inputs, code revision, m
 
 ## Why
 
-- **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, and derived digests never show up as noise; what changed in inputs, outputs, and costs does.
+- **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, and derived digests never show up as noise; what changed in inputs, outputs, and costs does. See [CI regression gates](docs/ci-regression.md) for the end-to-end recipe.
 - **Audit and forensics.** Bundles are tamper-evident: a stable SHA-256 digest covers everything that can affect replay decisions, and `proofline verify` re-checks every stored hash, redaction path, and secret pattern.
 - **Portability.** A bundle is one JSON file with a published [schema](schemas/run.schema.json) and [spec](spec/run-bundle-v0.1.md). No server, no vendor lock-in.
 
@@ -81,7 +81,7 @@ with RunRecorder(out_path="artifacts/openai.run.json") as recorder:
     )
 ```
 
-Each `chat.completions.create` call is recorded as a `model` step with the request as input, the response as output, and token usage as cost. Streaming calls are recorded too: the accumulated text is stored together with a `truncated` flag, and a failed request records an `error` step. Run `examples/openai_chat.py` for an end-to-end recorded call.
+Each `chat.completions.create` call is recorded as a `model` step with the request as input, the response as output, and token usage as cost. Streaming calls are recorded too: the accumulated text is stored together with a `truncated` flag, and a failed request records an `error` step. `AsyncOpenAI` clients are wrapped by the same `wrap()` call. Run `examples/openai_chat.py` for an end-to-end recorded call.
 
 ### Anthropic
 
@@ -103,7 +103,7 @@ with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
     )
 ```
 
-`messages.create` is recorded the same way, including `stream=True` event iteration. Run `examples/anthropic_chat.py` for an end-to-end recorded call.
+`messages.create` is recorded the same way, including `stream=True` event iteration, and `AsyncAnthropic` clients are wrapped by the same `wrap()` call. Run `examples/anthropic_chat.py` for an end-to-end recorded call.
 
 ## Bundle anatomy
 
@@ -141,6 +141,20 @@ with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
 ## Core invariant
 
 A bundle is portable evidence. Any field that cannot affect replay decisions, such as wall-clock timestamps or a fresh run id, is excluded from the stable digest and from semantic diffs. `bundle_digest` is SHA-256 over canonical JSON of the bundle with volatile fields removed; see the [spec](spec/run-bundle-v0.1.md) for the exact normalization and verification rules.
+
+## FAQ
+
+**How is this different from LangSmith, Langfuse, or other tracing platforms?**
+Those are observability platforms: hosted dashboards for exploring traces at scale. Proofline is an evidence format: a single verifiable JSON file you can commit to a repo, diff in CI, attach to an incident report, or hand to an auditor. No server, no account, no SDK lock-in. If you already run a tracing platform, proofline is complementary — it is the artifact you keep when a specific run has to be provable.
+
+**Is a bundle proof that the model would answer the same way again?**
+No, and the spec is explicit about this non-goal. A bundle proves what was sent, what came back, what it cost, and that nobody altered the record afterwards. Determinism is your pipeline's job; the [CI recipe](docs/ci-regression.md) shows how to get there where it matters.
+
+**Does redaction make bundles safe to share?**
+Redaction is pattern-based and best-effort — it catches well-known key names and token formats before anything touches disk, and `verify` re-scans as a second line of defense. It is not a guarantee; review bundles like any fixture before publishing them. See [SECURITY.md](SECURITY.md) for the exact boundary.
+
+**When should I not use proofline?**
+If you want live dashboards, sampling analytics, or fleet-wide monitoring, use a tracing platform. If your pipeline has no decisions worth auditing or regressing, a bundle is overhead. Proofline earns its keep where runs are consequential: agents that touch code, money, or user data, and pipelines whose behavior changes must be caught in review.
 
 ## Development
 
