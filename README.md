@@ -6,6 +6,8 @@
 
 Proofline is a model-agnostic protocol and reference implementation for verifiable AI runs.
 
+![proofline demo: verify a bundle, diff two runs, catch a prompt change](docs/demo.gif)
+
 A run bundle is a single JSON document that records the inputs, code revision, model/tool steps, outputs, costs, redactions, and hashes needed to replay, diff, and audit LLM or agent executions. The core is a versioned schema; SDKs, storage backends, and framework adapters are replaceable layers around it.
 
 ## Why
