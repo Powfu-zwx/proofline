@@ -8,3 +8,8 @@ dist/
 *.egg-info/
 artifacts/
 .proofline/
+
+# local planning material, not part of the public repo
+PLAN.md
+PLAN.xlsx
+drafts/
