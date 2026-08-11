@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proofline.dev/schemas/run.schema.json",
+  "title": "Proofline Run Bundle",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "created_at",
+    "actor",
+    "project",
+    "invocation",
+    "steps",
+    "redactions",
+    "bundle_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "actor": {
+      "type": "object",
+      "required": ["type", "name", "version"],
+      "properties": {
+        "type": { "type": "string" },
+        "name": { "type": "string" },
+        "version": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "project": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "revision": { "type": ["string", "null"] },
+        "dirty": { "type": ["boolean", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "invocation": {
+      "type": "object",
+      "required": ["argv", "cwd"],
+      "properties": {
+        "argv": { "type": "array", "items": { "type": "string" } },
+        "cwd": { "type": "string" },
+        "env_keys": { "type": "array", "items": { "type": "string" } },
+        "python": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["step_id", "kind", "name", "status", "started_at", "ended_at"],
+        "properties": {
+          "step_id": { "type": "string" },
+          "kind": { "enum": ["model", "tool", "file", "network", "process", "custom"] },
+          "name": { "type": "string" },
+          "status": { "enum": ["ok", "error", "skipped"] },
+          "started_at": { "type": "string", "format": "date-time" },
+          "ended_at": { "type": "string", "format": "date-time" },
+          "input": true,
+          "output": true,
+          "error": { "type": ["string", "null"] },
+          "cost": { "type": ["object", "null"], "additionalProperties": true },
+          "metadata": { "type": "object", "additionalProperties": true },
+          "input_digest": { "type": ["string", "null"] },
+          "output_digest": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "redactions": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "bundle_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "additionalProperties": true
+}
