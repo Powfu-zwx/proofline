@@ -1,10 +1,18 @@
 # Proofline
 
 [![CI](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml/badge.svg)](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 
 Proofline is a model-agnostic protocol and reference implementation for verifiable AI runs.
 
-A run bundle records the inputs, code revision, model/tool steps, outputs, costs, redactions, and hashes needed to replay, diff, and audit LLM or agent executions. The core is a versioned schema; SDKs, storage backends, and framework adapters are replaceable layers around it.
+A run bundle is a single JSON document that records the inputs, code revision, model/tool steps, outputs, costs, redactions, and hashes needed to replay, diff, and audit LLM or agent executions. The core is a versioned schema; SDKs, storage backends, and framework adapters are replaceable layers around it.
+
+## Why
+
+- **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, and derived digests never show up as noise; what changed in inputs, outputs, and costs does.
+- **Audit and forensics.** Bundles are tamper-evident: a stable SHA-256 digest covers everything that can affect replay decisions, and `proofline verify` re-checks every stored hash, redaction path, and secret pattern.
+- **Portability.** A bundle is one JSON file with a published [schema](schemas/run.schema.json) and [spec](spec/run-bundle-v0.1.md). No server, no vendor lock-in.
 
 ## Non-goals
 
@@ -12,18 +20,49 @@ A run bundle records the inputs, code revision, model/tool steps, outputs, costs
 - Not a model provider or prompt registry.
 - Not a claim that reruns are bit-identical when the underlying model or tools are nondeterministic.
 
-## Quickstart
+## Install
 
 ```bash
+git clone https://github.com/Powfu-zwx/proofline.git
+cd proofline
 python -m pip install -e .
-proofline run --out artifacts/demo.run.json -- python examples/code_fix_agent.py --out artifacts/agent-sdk.run.json
-proofline verify artifacts/demo.run.json
-proofline diff artifacts/demo.run.json artifacts/agent-sdk.run.json
 ```
 
-For SDK usage, see `examples/rag_citation_check.py` and `examples/code_fix_agent.py`.
+## Quickstart
 
-### OpenAI integration
+Record the same command twice, then prove the runs are semantically identical:
+
+```bash
+proofline run --out artifacts/a.run.json -- python examples/code_fix_agent.py
+proofline run --out artifacts/b.run.json -- python examples/code_fix_agent.py
+
+proofline verify artifacts/a.run.json
+# OK artifacts/a.run.json
+
+proofline diff artifacts/a.run.json artifacts/b.run.json
+# no semantic differences
+```
+
+Timestamps and run ids differ between the two bundles, but both are excluded from the stable digest and from semantic diffs, so identical work produces an empty diff.
+
+## SDK
+
+```python
+from proofline import RunRecorder
+
+with RunRecorder(out_path="artifacts/demo.run.json") as recorder:
+    with recorder.step("model", "draft", input={"prompt": "hi"}) as step:
+        step["output"] = {"text": "ok"}
+        step["cost"] = {"input_tokens": 3, "output_tokens": 1}
+```
+
+Secrets are redacted before anything touches disk: keys like `api_key` / `credentials` and values like `sk-...`, `AKIA...`, `Bearer ...`, or JWTs are replaced with `[REDACTED]`, and each redaction site is recorded as a JSON Pointer in the bundle.
+
+See `examples/rag_citation_check.py` and `examples/code_fix_agent.py` for full agent-shaped runs.
+
+## Integrations
+
+### OpenAI
 
 ```bash
 python -m pip install -e ".[openai]"
@@ -42,10 +81,75 @@ with RunRecorder(out_path="artifacts/openai.run.json") as recorder:
     )
 ```
 
-Each `chat.completions.create` call is recorded as a `model` step with the
-request as input, the response as output, and token usage as cost. Run
-`examples/openai_chat.py` for an end-to-end recorded call.
+Each `chat.completions.create` call is recorded as a `model` step with the request as input, the response as output, and token usage as cost. Streaming calls are recorded too: the accumulated text is stored together with a `truncated` flag, and a failed request records an `error` step. Run `examples/openai_chat.py` for an end-to-end recorded call.
+
+### Anthropic
+
+```bash
+python -m pip install -e ".[anthropic]"
+```
+
+```python
+from anthropic import Anthropic
+from proofline import RunRecorder
+from proofline.anthropic import wrap
+
+with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
+    client = wrap(Anthropic(), recorder)
+    client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=256,
+        messages=[{"role": "user", "content": "ping"}],
+    )
+```
+
+`messages.create` is recorded the same way, including `stream=True` event iteration. Run `examples/anthropic_chat.py` for an end-to-end recorded call.
+
+## Bundle anatomy
+
+```json
+{
+  "schema_version": "0.1",
+  "run_id": "6f0c0f1e-…",
+  "created_at": "2026-08-11T15:00:00.000Z",
+  "actor": {"type": "human+agent", "name": "powfu", "version": "0.1.0"},
+  "project": {"name": "proofline", "revision": "9dd5f0a…", "dirty": false},
+  "invocation": {"argv": ["python", "agent.py"], "cwd": "…", "env_keys": ["PATH"], "python": "3.11.15"},
+  "steps": [
+    {
+      "step_id": "step-1",
+      "kind": "model",
+      "name": "draft",
+      "status": "ok",
+      "started_at": "…",
+      "ended_at": "…",
+      "input": {"prompt": "hi"},
+      "output": {"text": "ok"},
+      "error": null,
+      "cost": {"input_tokens": 3, "output_tokens": 1},
+      "metadata": {},
+      "input_digest": "…",
+      "output_digest": "…"
+    }
+  ],
+  "redactions": [],
+  "metadata": {},
+  "bundle_digest": "…"
+}
+```
 
 ## Core invariant
 
-A bundle is portable evidence. Any field that cannot affect replay decisions, such as wall-clock timestamps or a fresh run id, is excluded from the stable digest and from semantic diffs.
+A bundle is portable evidence. Any field that cannot affect replay decisions, such as wall-clock timestamps or a fresh run id, is excluded from the stable digest and from semantic diffs. `bundle_digest` is SHA-256 over canonical JSON of the bundle with volatile fields removed; see the [spec](spec/run-bundle-v0.1.md) for the exact normalization and verification rules.
+
+## Development
+
+```bash
+python -m pip install -e ".[dev]"
+ruff check src tests examples
+pytest -q
+```
+
+## License
+
+[MIT](LICENSE)
