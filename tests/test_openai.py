@@ -101,6 +101,30 @@ class OpenAIIntegrationTest(unittest.TestCase):
             self.assertEqual(step["error"], "RuntimeError: api down")
             self.assertIsNone(step["output"])
 
+    def test_stream_midway_failure_records_error_and_partial_text(self) -> None:
+        def broken_stream():
+            delta = SimpleNamespace(content="he")
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+            raise RuntimeError("connection dropped")
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = _FakeClient()
+            client.chat.completions.create = lambda **kwargs: broken_stream()
+            recorder = RunRecorder(cwd=directory, argv=["demo"])
+            wrapped = wrap(client, recorder)
+            stream = wrapped.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "ping"}],
+                stream=True,
+            )
+            with self.assertRaises(RuntimeError):
+                list(stream)
+            step = recorder.finalize()["steps"][0]
+            self.assertEqual(step["status"], "error")
+            self.assertEqual(step["error"], "RuntimeError: connection dropped")
+            self.assertEqual(step["output"]["content"], "he")
+            self.assertTrue(step["output"]["truncated"])
+
     def test_abandoned_stream_marks_truncated(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             client = _FakeClient()
@@ -197,6 +221,31 @@ class AsyncOpenAIIntegrationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(step["status"], "ok")
         self.assertTrue(step["output"]["truncated"])
         self.assertEqual(step["output"]["content"], "he")
+
+    async def test_async_stream_midway_failure_records_error_and_partial_text(self) -> None:
+        async def broken_stream():
+            delta = SimpleNamespace(content="he")
+            yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+            raise RuntimeError("connection dropped")
+
+        async def acreate(**kwargs):
+            return broken_stream()
+
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        wrapped = wrap(self._client(acreate), recorder)
+        stream = await wrapped.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": "ping"}],
+            stream=True,
+        )
+        with self.assertRaises(RuntimeError):
+            async for _ in stream:
+                pass
+        step = recorder.finalize()["steps"][0]
+        self.assertEqual(step["status"], "error")
+        self.assertEqual(step["error"], "RuntimeError: connection dropped")
+        self.assertEqual(step["output"]["content"], "he")
+        self.assertTrue(step["output"]["truncated"])
 
     async def test_async_stream_create_failure_records_error_step(self) -> None:
         async def acreate(**kwargs):

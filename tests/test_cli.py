@@ -105,6 +105,19 @@ class CliRunTest(unittest.TestCase):
             self.assertIn("no command given", stderr)
             self.assertFalse(out.exists())
 
+    def test_run_nonexistent_command_still_writes_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "run.json"
+            code, _, stderr = _run_main(
+                ["run", "--out", str(out), "--", "proofline-no-such-command-xyz"]
+            )
+            self.assertEqual(code, 2)
+            self.assertNotEqual(stderr, "")
+            self.assertEqual(verify_bundle(out), [])
+            step = read_bundle(out)["steps"][0]
+            self.assertEqual(step["status"], "error")
+            self.assertIn("FileNotFoundError", step["error"])
+
 
 class CliVersionTest(unittest.TestCase):
     def test_version_flag_prints_version_and_exits_zero(self) -> None:
@@ -123,6 +136,12 @@ class CliVerifyTest(unittest.TestCase):
             code, stdout, _ = _run_main(["verify", str(out)])
             self.assertEqual(code, 0)
             self.assertIn("OK", stdout)
+
+    def test_verify_missing_file_exits_two(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            code, _, stderr = _run_main(["verify", str(Path(directory) / "absent.json")])
+            self.assertEqual(code, 2)
+            self.assertNotEqual(stderr, "")
 
     def test_verify_tampered_bundle_fails(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
