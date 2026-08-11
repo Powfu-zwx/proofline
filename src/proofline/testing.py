@@ -36,10 +36,11 @@ def assert_matches_baseline(
 ) -> None:
     """Assert that a bundle semantically matches the stored baseline.
 
-    The bundle is verified first, so a tampered or malformed candidate fails
-    before any comparison. Set ``PROOFLINE_UPDATE_BASELINES=1`` to (re)write
-    the baseline instead of asserting, then commit the updated file; the
-    variable itself is excluded from the comparison.
+    Candidate and baseline are both verified, so a tampered or malformed
+    bundle on either side fails before any comparison. Set
+    ``PROOFLINE_UPDATE_BASELINES=1`` to (re)write the baseline instead of
+    asserting, then commit the updated file; the variable itself is excluded
+    from the comparison.
     """
     if isinstance(bundle_or_path, (str, Path)):
         bundle = read_bundle(bundle_or_path)
@@ -55,9 +56,9 @@ def assert_matches_baseline(
         raise AssertionError(
             f"baseline does not exist: {path}; run once with {UPDATE_ENV}=1 to record it"
         )
-    differences = diff_bundles(
-        _without_update_env(read_bundle(path)), _without_update_env(bundle)
-    )
+    baseline = read_bundle(path)
+    assert_valid(baseline)
+    differences = diff_bundles(_without_update_env(baseline), _without_update_env(bundle))
     if differences:
         listing = "\n".join(differences)
         raise AssertionError(f"run diverged from baseline {path}:\n{listing}")
