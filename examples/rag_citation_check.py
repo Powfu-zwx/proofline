@@ -38,7 +38,8 @@ def main() -> int:
         with recorder.step("tool", "retrieve", input={"question": args.question}) as step:
             docs = retrieve(args.question)
             step["output"] = {"docs": docs}
-        with recorder.step("model", "draft_answer", input={"question": args.question, "docs": docs}) as step:
+        step_input = {"question": args.question, "docs": docs}
+        with recorder.step("model", "draft_answer", input=step_input) as step:
             answer = draft_answer(args.question, docs)
             step["output"] = answer
             step["cost"] = {"input_tokens": 42, "output_tokens": 18, "usd": 0.0}

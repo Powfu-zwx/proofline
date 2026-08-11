@@ -6,7 +6,6 @@ from typing import Any
 from .model import stable_bundle
 from .storage import read_bundle
 
-
 DERIVED_STEP_FIELDS = {"input_digest", "output_digest"}
 
 
@@ -46,7 +45,7 @@ def _diff(left: Any, right: Any, path: str = "") -> list[str]:
         differences = []
         if len(left) != len(right):
             differences.append(f"{display_path}: length {len(left)} != {len(right)}")
-        for index, (left_item, right_item) in enumerate(zip(left, right)):
+        for index, (left_item, right_item) in enumerate(zip(left, right, strict=False)):
             differences.extend(_diff(left_item, right_item, f"{display_path}[{index}]"))
         return differences
     if left != right:

@@ -28,7 +28,10 @@ class VerificationError(ValueError):
 
 
 def verify_bundle(bundle_or_path: str | Path | dict[str, Any]) -> list[str]:
-    bundle = read_bundle(bundle_or_path) if isinstance(bundle_or_path, (str, Path)) else bundle_or_path
+    if isinstance(bundle_or_path, (str, Path)):
+        bundle = read_bundle(bundle_or_path)
+    else:
+        bundle = bundle_or_path
     errors: list[str] = []
     if not isinstance(bundle, dict):
         return ["bundle must be a JSON object"]
@@ -55,16 +58,24 @@ def verify_bundle(bundle_or_path: str | Path | dict[str, Any]) -> list[str]:
             errors.append(f"steps[{index}].kind is invalid: {step.get('kind')!r}")
         if step.get("status") not in STEP_STATUSES:
             errors.append(f"steps[{index}].status is invalid: {step.get('status')!r}")
-        if step.get("input") is not None and step.get("input_digest") != sha256_json(step.get("input")):
+        if step.get("input") is not None and step.get("input_digest") != sha256_json(
+            step.get("input")
+        ):
             errors.append(f"steps[{index}].input_digest mismatch")
-        if step.get("output") is not None and step.get("output_digest") != sha256_json(step.get("output")):
+        if step.get("output") is not None and step.get("output_digest") != sha256_json(
+            step.get("output")
+        ):
             errors.append(f"steps[{index}].output_digest mismatch")
 
     digest = bundle.get("bundle_digest")
     if not isinstance(digest, str) or digest != stable_digest(bundle):
         errors.append("bundle_digest mismatch")
 
-    leaks = [path for path in contains_unredacted_secret(bundle) if not path.endswith("/bundle_digest")]
+    leaks = [
+        path
+        for path in contains_unredacted_secret(bundle)
+        if not path.endswith("/bundle_digest")
+    ]
     if leaks:
         errors.append(f"possible unredacted secrets at: {', '.join(leaks)}")
 

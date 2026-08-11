@@ -36,8 +36,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
     policy.check_command(argv)
 
     returncode = 1
-    with RunRecorder(argv=argv, out_path=args.out, metadata={"entrypoint": "proofline run"}) as recorder:
-        with recorder.step("process", Path(argv[0]).name or argv[0], input={"argv": argv}) as handle:
+    metadata = {"entrypoint": "proofline run"}
+    with RunRecorder(argv=argv, out_path=args.out, metadata=metadata) as recorder:
+        process_name = Path(argv[0]).name or argv[0]
+        with recorder.step("process", process_name, input={"argv": argv}) as handle:
             completed = subprocess.run(argv, check=False)
             returncode = completed.returncode
             handle["output"] = {"returncode": returncode}

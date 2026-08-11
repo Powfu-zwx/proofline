@@ -7,7 +7,9 @@ REDACTED = "[REDACTED]"
 SECRET_KEY = re.compile(
     r"(?i)(^|[_\-.])(api[_-]?key|token|secret|password|authorization|credential|private[_-]?key)(?=$|[_\-.])"
 )
-SECRET_VALUE = re.compile(r"(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,})")
+SECRET_VALUE = re.compile(
+    r"(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,})"
+)
 
 
 def _escape_pointer(part: str) -> str:

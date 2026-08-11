@@ -6,9 +6,10 @@ import platform
 import subprocess
 import sys
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from .model import SCHEMA_VERSION, sha256_json, stable_digest, utc_now
 from .policy import Policy
@@ -77,7 +78,7 @@ class RunRecorder:
             "version": SCHEMA_VERSION,
         }
 
-    def __enter__(self) -> "RunRecorder":
+    def __enter__(self) -> RunRecorder:
         return self
 
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
@@ -128,13 +129,17 @@ class RunRecorder:
                 "cost": redacted_cost,
                 "metadata": redacted_metadata,
                 "input_digest": None if input is None else sha256_json(redacted_input),
-                "output_digest": None if handle.get("output") is None else sha256_json(redacted_output),
+                "output_digest": (
+                    None if handle.get("output") is None else sha256_json(redacted_output)
+                ),
             }
             self.steps.append(step)
             self.redactions.extend(_qualify_redactions(input_redactions, f"{step_base}/input"))
             self.redactions.extend(_qualify_redactions(output_redactions, f"{step_base}/output"))
             self.redactions.extend(_qualify_redactions(cost_redactions, f"{step_base}/cost"))
-            self.redactions.extend(_qualify_redactions(metadata_redactions, f"{step_base}/metadata"))
+            self.redactions.extend(
+                _qualify_redactions(metadata_redactions, f"{step_base}/metadata")
+            )
 
     def finalize(self, path: str | Path | None = None) -> dict[str, Any]:
         bundle = {

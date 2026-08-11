@@ -9,7 +9,11 @@ SOURCE = "def add(a, b):\n    return a - b\n"
 
 
 def locate_fault(source: str) -> dict[str, object]:
-    return {"symbol": "add", "line": 2, "observation": "subtraction used where addition was intended"}
+    return {
+        "symbol": "add",
+        "line": 2,
+        "observation": "subtraction used where addition was intended",
+    }
 
 
 def propose_patch(source: str, fault: dict[str, object]) -> dict[str, object]:
@@ -29,7 +33,8 @@ def main() -> int:
         with recorder.step("tool", "locate_fault", input={"source": SOURCE}) as step:
             fault = locate_fault(SOURCE)
             step["output"] = fault
-        with recorder.step("model", "propose_patch", input={"source": SOURCE, "fault": fault}) as step:
+        step_input = {"source": SOURCE, "fault": fault}
+        with recorder.step("model", "propose_patch", input=step_input) as step:
             proposal = propose_patch(SOURCE, fault)
             step["output"] = proposal
             step["cost"] = {"input_tokens": 87, "output_tokens": 31, "usd": 0.0}
