@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from .model import SCHEMA_VERSION, sha256_json, stable_digest, utc_now
+from .model import PACKAGE_VERSION, SCHEMA_VERSION, STEP_KINDS, sha256_json, stable_digest, utc_now
 from .policy import Policy
 from .redact import redact
 from .storage import write_bundle
@@ -56,7 +56,6 @@ class RunRecorder:
         self.steps: list[dict[str, Any]] = []
         self.metadata, metadata_redactions = redact(metadata or {})
         self.redactions = _qualify_redactions(metadata_redactions, "/metadata")
-        self._finalized_bundle: dict[str, Any] | None = None
 
         revision = _git(["rev-parse", "HEAD"], self.cwd)
         dirty = _git(["status", "--porcelain"], self.cwd)
@@ -74,7 +73,7 @@ class RunRecorder:
         self.actor = {
             "type": "human+agent",
             "name": getpass.getuser(),
-            "version": SCHEMA_VERSION,
+            "version": PACKAGE_VERSION,
         }
 
     def __enter__(self) -> RunRecorder:
@@ -93,6 +92,8 @@ class RunRecorder:
         input: Any = None,
         metadata: dict[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
+        if kind not in STEP_KINDS:
+            raise ValueError(f"invalid step kind {kind!r}; expected one of {sorted(STEP_KINDS)}")
         started_at = utc_now()
         handle: dict[str, Any] = {
             "output": None,
@@ -116,7 +117,7 @@ class RunRecorder:
             redacted_cost, cost_redactions = redact(handle.get("cost"))
             redacted_metadata, metadata_redactions = redact(handle.get("metadata") or {})
             step = {
-                "step_id": f"step-{len(self.steps) + 1}",
+                "step_id": f"step-{step_index + 1}",
                 "kind": kind,
                 "name": name,
                 "status": handle.get("status", "ok"),
@@ -157,5 +158,4 @@ class RunRecorder:
         if target is not None:
             self.policy.check_write_path(target)
             write_bundle(target, bundle)
-        self._finalized_bundle = bundle
         return bundle

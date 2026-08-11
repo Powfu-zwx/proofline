@@ -3,28 +3,42 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .model import SCHEMA_VERSION, sha256_json, stable_digest
+from .model import (
+    REQUIRED_STEP,
+    REQUIRED_TOP_LEVEL,
+    SCHEMA_VERSION,
+    STEP_KINDS,
+    STEP_STATUSES,
+    sha256_json,
+    stable_digest,
+)
 from .redact import contains_unredacted_secret
 from .storage import read_bundle
-
-REQUIRED_TOP_LEVEL = {
-    "schema_version",
-    "run_id",
-    "created_at",
-    "actor",
-    "project",
-    "invocation",
-    "steps",
-    "redactions",
-    "bundle_digest",
-}
-REQUIRED_STEP = {"step_id", "kind", "name", "status", "started_at", "ended_at"}
-STEP_KINDS = {"model", "tool", "file", "network", "process", "custom"}
-STEP_STATUSES = {"ok", "error", "skipped"}
 
 
 class VerificationError(ValueError):
     pass
+
+
+def _pointer_resolves(document: Any, pointer: str) -> bool:
+    if pointer == "":
+        return True
+    if not pointer.startswith("/"):
+        return False
+    node = document
+    for raw_part in pointer[1:].split("/"):
+        part = raw_part.replace("~1", "/").replace("~0", "~")
+        if isinstance(node, dict):
+            if part not in node:
+                return False
+            node = node[part]
+        elif isinstance(node, list):
+            if not part.isdigit() or int(part) >= len(node):
+                return False
+            node = node[int(part)]
+        else:
+            return False
+    return True
 
 
 def verify_bundle(bundle_or_path: str | Path | dict[str, Any]) -> list[str]:
@@ -73,17 +87,17 @@ def verify_bundle(bundle_or_path: str | Path | dict[str, Any]) -> list[str]:
     ):
         errors.append("bundle_digest mismatch")
 
-    leaks = [
-        path
-        for path in contains_unredacted_secret(bundle)
-        if not path.endswith("/bundle_digest")
-    ]
+    leaks = contains_unredacted_secret(bundle)
     if leaks:
         errors.append(f"possible unredacted secrets at: {', '.join(leaks)}")
 
     redactions = bundle.get("redactions")
     if not isinstance(redactions, list) or any(not isinstance(path, str) for path in redactions):
         errors.append("redactions must be an array of JSON Pointer strings")
+    else:
+        for path in redactions:
+            if not _pointer_resolves(bundle, path):
+                errors.append(f"redaction path does not resolve: {path}")
 
     return errors
 

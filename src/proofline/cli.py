@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from .diff import diff_bundles
-from .policy import Policy, PolicyViolation
+from .policy import PolicyViolation
 from .recorder import RunRecorder
 from .verify import VerificationError, verify_bundle
 
@@ -32,8 +32,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     argv = list(args.cmd)
     if argv and argv[0] == "--":
         argv = argv[1:]
-    policy = Policy()
-    policy.check_command(argv)
+    if not argv:
+        print("no command given after --", file=sys.stderr)
+        return 2
 
     returncode = 1
     metadata = {"entrypoint": "proofline run"}

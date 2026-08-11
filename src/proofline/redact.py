@@ -4,11 +4,21 @@ import re
 from typing import Any
 
 REDACTED = "[REDACTED]"
+# "token" stays singular: plural keys such as "max_tokens" or "total_tokens" are counts.
 SECRET_KEY = re.compile(
-    r"(?i)(^|[_\-.])(api[_-]?key|token|secret|password|authorization|credential|private[_-]?key)(?=$|[_\-.])"
+    r"(?i)(^|[_\-.])"
+    r"(api[_-]?keys?|auth|token|secrets?|passwords?|authorization|credentials?|private[_-]?keys?)"
+    r"(?=$|[_\-.])"
 )
 SECRET_VALUE = re.compile(
-    r"(sk-[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{20,}|Bearer\s+[A-Za-z0-9._-]{20,})"
+    r"(sk-[A-Za-z0-9_-]{16,}"
+    r"|ghp_[A-Za-z0-9]{20,}"
+    r"|github_pat_[A-Za-z0-9_]{22,}"
+    r"|AKIA[0-9A-Z]{16}"
+    r"|xox[abprs]-[A-Za-z0-9-]{10,}"
+    r"|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}"
+    r"|Bearer\s+[A-Za-z0-9._-]{20,}"
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
 )
 
 

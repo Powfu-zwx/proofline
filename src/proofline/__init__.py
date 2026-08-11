@@ -1,4 +1,4 @@
-from .model import SCHEMA_VERSION
+from .model import PACKAGE_VERSION, SCHEMA_VERSION
 from .policy import Policy, PolicyViolation
 from .recorder import RunRecorder
 from .verify import VerificationError, assert_valid, verify_bundle
@@ -13,4 +13,4 @@ __all__ = [
     "verify_bundle",
 ]
 
-__version__ = "0.1.0"
+__version__ = PACKAGE_VERSION

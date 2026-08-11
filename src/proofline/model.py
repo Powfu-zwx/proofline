@@ -6,8 +6,25 @@ from datetime import UTC, datetime
 from typing import Any
 
 SCHEMA_VERSION = "0.1"
+PACKAGE_VERSION = "0.1.0"
+
 VOLATILE_TOP_LEVEL = {"run_id", "created_at", "bundle_digest"}
 VOLATILE_STEP_FIELDS = {"started_at", "ended_at"}
+
+REQUIRED_TOP_LEVEL = {
+    "schema_version",
+    "run_id",
+    "created_at",
+    "actor",
+    "project",
+    "invocation",
+    "steps",
+    "redactions",
+    "bundle_digest",
+}
+REQUIRED_STEP = {"step_id", "kind", "name", "status", "started_at", "ended_at"}
+STEP_KINDS = {"model", "tool", "file", "network", "process", "custom"}
+STEP_STATUSES = {"ok", "error", "skipped"}
 
 
 def utc_now() -> str:

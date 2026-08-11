@@ -34,17 +34,23 @@ class _FakeClient:
         self.chat = SimpleNamespace(completions=_FakeCompletions())
 
 
+def _fake_stream():
+    for token in ("he", "llo"):
+        delta = SimpleNamespace(content=token)
+        yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
+
+
 class OpenAIIntegrationTest(unittest.TestCase):
     def test_create_records_model_step_with_cost(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "run.json"
             client = _FakeClient()
-            with RunRecorder(cwd=directory, argv=["demo"], out_path=out) as recorder:
-                wrapped = wrap(client, recorder)
-                response = wrapped.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": "ping"}],
-                )
+            recorder = RunRecorder(cwd=directory, argv=["demo"], out_path=out)
+            wrapped = wrap(client, recorder)
+            response = wrapped.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "ping"}],
+            )
             self.assertEqual(response.model_dump()["choices"][0]["message"]["content"], "pong")
 
             bundle = recorder.finalize()
@@ -59,14 +65,9 @@ class OpenAIIntegrationTest(unittest.TestCase):
             self.assertEqual(verify_bundle(out), [])
 
     def test_stream_records_full_text(self) -> None:
-        def fake_stream():
-            for token in ("he", "llo"):
-                delta = SimpleNamespace(content=token)
-                yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)])
-
         with tempfile.TemporaryDirectory() as directory:
             client = _FakeClient()
-            client.chat.completions.create = lambda **kwargs: fake_stream()
+            client.chat.completions.create = lambda **kwargs: _fake_stream()
             recorder = RunRecorder(cwd=directory, argv=["demo"])
             wrapped = wrap(client, recorder)
             stream = wrapped.chat.completions.create(
@@ -74,12 +75,50 @@ class OpenAIIntegrationTest(unittest.TestCase):
                 messages=[{"role": "user", "content": "ping"}],
                 stream=True,
             )
-            collected = [getattr(c.choices[0].delta, "content", "") for c in stream]
+            collected = [chunk.choices[0].delta.content for chunk in stream]
             bundle = recorder.finalize()
             step = bundle["steps"][0]
             self.assertEqual("".join(collected), "hello")
+            self.assertEqual(step["status"], "ok")
             self.assertEqual(step["output"]["content"], "hello")
             self.assertTrue(step["output"]["streamed"])
+            self.assertFalse(step["output"]["truncated"])
+            self.assertEqual(step["metadata"]["model"], "gpt-4o-mini")
+
+    def test_stream_create_failure_records_error_step(self) -> None:
+        def boom(**kwargs):
+            raise RuntimeError("api down")
+
+        with tempfile.TemporaryDirectory() as directory:
+            client = _FakeClient()
+            client.chat.completions.create = boom
+            recorder = RunRecorder(cwd=directory, argv=["demo"])
+            wrapped = wrap(client, recorder)
+            with self.assertRaises(RuntimeError):
+                wrapped.chat.completions.create(model="gpt-4o-mini", messages=[], stream=True)
+            step = recorder.finalize()["steps"][0]
+            self.assertEqual(step["status"], "error")
+            self.assertEqual(step["error"], "RuntimeError: api down")
+            self.assertIsNone(step["output"])
+
+    def test_abandoned_stream_marks_truncated(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            client = _FakeClient()
+            client.chat.completions.create = lambda **kwargs: _fake_stream()
+            recorder = RunRecorder(cwd=directory, argv=["demo"])
+            wrapped = wrap(client, recorder)
+            stream = wrapped.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "ping"}],
+                stream=True,
+            )
+            first = next(stream)
+            self.assertEqual(first.choices[0].delta.content, "he")
+            stream.close()
+            step = recorder.finalize()["steps"][0]
+            self.assertEqual(step["status"], "ok")
+            self.assertTrue(step["output"]["truncated"])
+            self.assertEqual(step["output"]["content"], "he")
 
     def test_api_key_in_messages_is_redacted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

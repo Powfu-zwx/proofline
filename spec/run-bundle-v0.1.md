@@ -21,9 +21,10 @@ Verification must check:
 
 1. Required top-level fields and step fields exist.
 2. `schema_version` is supported.
-3. Every stored digest matches its canonical content.
-4. Redaction paths do not resolve to values still containing obvious secret keys.
-5. The stable digest matches the normalized bundle.
+3. Every stored step digest matches the canonical JSON of its recorded content.
+4. Every redaction path is a JSON Pointer that resolves inside the bundle.
+5. No value in the bundle matches an obvious secret pattern.
+6. The stable digest matches the normalized bundle.
 
 ## Evolution
 

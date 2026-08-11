@@ -42,6 +42,13 @@ class RunRecorderTest(unittest.TestCase):
         self.assertEqual(recorder.metadata["nested"]["api_key"], "[REDACTED]")
         self.assertEqual(recorder.metadata["nested"]["list"], ["token_abc"])
 
+    def test_invalid_step_kind_fails_fast(self) -> None:
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        with self.assertRaises(ValueError):
+            with recorder.step("llm", "draft"):
+                pass
+        self.assertEqual(recorder.steps, [])
+
     def test_stable_digest_ignores_volatile_fields(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             def record() -> dict:
