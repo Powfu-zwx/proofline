@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proofline"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Verifiable run bundles for reproducible AI and agent execution"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,16 +17,27 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Testing",
   "Topic :: Security",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Powfu-zwx/proofline"
+Repository = "https://github.com/Powfu-zwx/proofline"
+Issues = "https://github.com/Powfu-zwx/proofline/issues"
 
 [project.scripts]
 proofline = "proofline.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "ruff>=0.6", "jsonschema>=4.21"]
 openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.40"]
+
+[tool.setuptools.dynamic]
+version = { attr = "proofline.model.PACKAGE_VERSION" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
