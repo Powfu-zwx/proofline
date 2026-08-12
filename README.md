@@ -1,6 +1,7 @@
 # Proofline
 
 [![CI](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml/badge.svg)](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/proofline.svg)](https://pypi.org/project/proofline/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 
@@ -25,27 +26,27 @@ A run bundle is a single JSON document that records the inputs, code revision, m
 ## Install
 
 ```bash
-git clone https://github.com/Powfu-zwx/proofline.git
-cd proofline
-python -m pip install -e .
+pip install proofline
 ```
+
+Provider integrations are optional extras: `pip install "proofline[openai]"` or `pip install "proofline[anthropic]"`. For development installs, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Quickstart
 
 Record the same command twice, then prove the runs are semantically identical:
 
 ```bash
-proofline run --out artifacts/a.run.json -- python examples/code_fix_agent.py
-proofline run --out artifacts/b.run.json -- python examples/code_fix_agent.py
+proofline run --out a.run.json -- python -c "print('hello agent')"
+proofline run --out b.run.json -- python -c "print('hello agent')"
 
-proofline verify artifacts/a.run.json
-# OK artifacts/a.run.json
+proofline verify a.run.json
+# OK a.run.json
 
-proofline diff artifacts/a.run.json artifacts/b.run.json
+proofline diff a.run.json b.run.json
 # no semantic differences
 ```
 
-Timestamps and run ids differ between the two bundles, but both are excluded from the stable digest and from semantic diffs, so identical work produces an empty diff.
+Timestamps and run ids differ between the two bundles, but both are excluded from the stable digest and from semantic diffs, so identical work produces an empty diff. For agent-shaped runs with tool, model, and check steps, clone the repo and try `examples/code_fix_agent.py` and `examples/rag_citation_check.py`.
 
 ## SDK
 
