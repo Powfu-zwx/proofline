@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 SCHEMA_VERSION = "0.1"
-PACKAGE_VERSION = "0.1.1"
+PACKAGE_VERSION = "0.2.0"
 
 VOLATILE_TOP_LEVEL = {"run_id", "created_at", "bundle_digest"}
 VOLATILE_STEP_FIELDS = {"started_at", "ended_at"}

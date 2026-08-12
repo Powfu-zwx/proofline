@@ -2,15 +2,12 @@
 
 Notable changes to proofline. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow the schema evolution rules in `spec/run-bundle-v0.1.md`.
 
-## Unreleased
-
-### Changed
-
-- Canonical JSON is strict: `NaN` and `Infinity` are rejected anywhere in a bundle, keeping digests portable across languages (spec updated accordingly).
-- Redaction pointer resolution follows RFC 6901: array indices with leading zeros no longer resolve.
+## 0.2.0
 
 ### Added
 
+- Replay (`proofline.replay`): recorded model responses are served back through the wrappers, so a bundle doubles as a deterministic, offline test fixture. `strict` matching by redacted-input digest for fixture tests, `ordered` matching for attribution diffs, `PROOFLINE_REPLAY` for zero-code activation in CI, and chunk-by-chunk streaming replay. See `docs/replay.md`.
+- Streamed steps record the individual text chunks (`output.chunks`) alongside the accumulated content.
 - `proofline --version`.
 - `RunRecorder.step` fails fast with a clear `TypeError` when the step input is not JSON-serializable, instead of crashing while the step is being recorded, and snapshots the input at entry so mutating the passed object during the step cannot alter the recorded evidence.
 - `proofline.testing.assert_matches_baseline`: snapshot-style baseline assertion for test suites, with `PROOFLINE_UPDATE_BASELINES=1` to re-record.
@@ -19,6 +16,11 @@ Notable changes to proofline. The format follows [Keep a Changelog](https://keep
 - `wrap()` in the OpenAI and Anthropic integrations detects `AsyncOpenAI` / `AsyncAnthropic` clients and records async calls, including async streaming with the same exactly-once and truncation semantics as the sync path.
 - CI regression gate guide (`docs/ci-regression.md`) and a README FAQ on positioning and guarantees.
 - Contributor guide, security policy with explicit redaction boundaries, and issue/PR templates.
+
+### Changed
+
+- Canonical JSON is strict: `NaN` and `Infinity` are rejected anywhere in a bundle, keeping digests portable across languages (spec updated accordingly).
+- Redaction pointer resolution follows RFC 6901: array indices with leading zeros no longer resolve.
 
 ## 0.1.1
 
