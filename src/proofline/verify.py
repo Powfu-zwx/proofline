@@ -102,6 +102,14 @@ def verify_bundle(bundle_or_path: str | Path | dict[str, Any]) -> list[str]:
             if not _pointer_resolves(bundle, path):
                 errors.append(f"redaction path does not resolve: {path}")
 
+    if bundle.get("signatures") is not None:
+        try:
+            from .sign import verify_signatures
+
+            errors.extend(verify_signatures(bundle))
+        except RuntimeError as exc:
+            errors.append(str(exc))
+
     return errors
 
 

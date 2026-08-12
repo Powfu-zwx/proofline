@@ -6,9 +6,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 SCHEMA_VERSION = "0.1"
-PACKAGE_VERSION = "0.2.0"
+PACKAGE_VERSION = "0.3.0"
 
-VOLATILE_TOP_LEVEL = {"run_id", "created_at", "bundle_digest"}
+# Signatures attest to a bundle; they are not recorded evidence, so they are
+# excluded from the stable digest and from semantic diffs.
+VOLATILE_TOP_LEVEL = {"run_id", "created_at", "bundle_digest", "signatures"}
 VOLATILE_STEP_FIELDS = {"started_at", "ended_at"}
 
 REQUIRED_TOP_LEVEL = {

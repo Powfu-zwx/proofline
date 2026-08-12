@@ -32,9 +32,10 @@ Issues = "https://github.com/Powfu-zwx/proofline/issues"
 proofline = "proofline.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.6", "jsonschema>=4.21"]
+dev = ["pytest>=8", "ruff>=0.6", "jsonschema>=4.21", "cryptography>=42"]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.40"]
+sign = ["cryptography>=42"]
 
 [tool.setuptools.dynamic]
 version = { attr = "proofline.model.PACKAGE_VERSION" }

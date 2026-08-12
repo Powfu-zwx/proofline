@@ -9,7 +9,6 @@ from typing import Any
 
 from .diff import diff_bundles
 from .model import PACKAGE_VERSION
-from .policy import PolicyViolation
 from .recorder import RunRecorder
 from .verify import VerificationError, verify_bundle
 
@@ -52,10 +51,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify_parser = subparsers.add_parser("verify", help="validate a run bundle")
     verify_parser.add_argument("path", help="bundle path")
+    verify_parser.add_argument(
+        "--signed-by",
+        help="additionally require a valid signature from this public key (PEM)",
+    )
 
     diff_parser = subparsers.add_parser("diff", help="compare two bundles semantically")
     diff_parser.add_argument("left", help="left bundle path")
     diff_parser.add_argument("right", help="right bundle path")
+
+    keygen_parser = subparsers.add_parser("keygen", help="generate an Ed25519 signing keypair")
+    keygen_parser.add_argument("--out", default=".", help="directory to write the keypair to")
+
+    sign_parser = subparsers.add_parser("sign", help="sign a run bundle in place")
+    sign_parser.add_argument("path", help="bundle path")
+    sign_parser.add_argument("--key", required=True, help="private key path (PEM)")
     return parser
 
 
@@ -89,6 +99,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 def _cmd_verify(args: argparse.Namespace) -> int:
     errors = verify_bundle(args.path)
+    if not errors and args.signed_by:
+        from .sign import signed_by
+        from .storage import read_bundle
+
+        if not signed_by(read_bundle(args.path), args.signed_by):
+            errors = [f"bundle carries no valid signature from {args.signed_by}"]
     if errors:
         for error in errors:
             print(error, file=sys.stderr)
@@ -107,6 +123,23 @@ def _cmd_diff(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_keygen(args: argparse.Namespace) -> int:
+    from .sign import generate_keypair
+
+    private_path, public_path = generate_keypair(args.out)
+    print(f"private key: {private_path}")
+    print(f"public key: {public_path}")
+    return 0
+
+
+def _cmd_sign(args: argparse.Namespace) -> int:
+    from .sign import sign_bundle
+
+    bundle = sign_bundle(args.path, args.key)
+    print(f"signed {args.path} with key {bundle['signatures'][-1]['key_id']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -116,7 +149,11 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_verify(args)
         if args.command == "diff":
             return _cmd_diff(args)
-    except (PolicyViolation, VerificationError, OSError, ValueError) as exc:
+        if args.command == "keygen":
+            return _cmd_keygen(args)
+        if args.command == "sign":
+            return _cmd_sign(args)
+    except (VerificationError, OSError, ValueError, RuntimeError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
     return 2

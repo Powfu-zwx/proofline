@@ -155,6 +155,36 @@ class CliVerifyTest(unittest.TestCase):
             self.assertIn("bundle_digest mismatch", stderr)
 
 
+class CliSignTest(unittest.TestCase):
+    def test_keygen_sign_and_verify_signed_by(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            code, stdout, _ = _run_main(["keygen", "--out", directory])
+            self.assertEqual(code, 0)
+            private_path = Path(directory) / "proofline-signing.pem"
+            public_path = Path(directory) / "proofline-signing.pub.pem"
+            self.assertTrue(private_path.exists())
+
+            out = _record_bundle(directory, "run.json")
+            code, stdout, _ = _run_main(["sign", str(out), "--key", str(private_path)])
+            self.assertEqual(code, 0)
+            self.assertIn("signed", stdout)
+
+            code, _, _ = _run_main(["verify", str(out), "--signed-by", str(public_path)])
+            self.assertEqual(code, 0)
+
+    def test_verify_signed_by_rejects_wrong_key(self) -> None:
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            _run_main(["keygen", "--out", first])
+            _run_main(["keygen", "--out", second])
+            out = _record_bundle(first, "run.json")
+            _run_main(["sign", str(out), "--key", str(Path(first) / "proofline-signing.pem")])
+            code, _, stderr = _run_main(
+                ["verify", str(out), "--signed-by", str(Path(second) / "proofline-signing.pub.pem")]
+            )
+            self.assertEqual(code, 1)
+            self.assertIn("no valid signature", stderr)
+
+
 class CliDiffTest(unittest.TestCase):
     def test_diff_identical_bundles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

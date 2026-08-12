@@ -74,7 +74,22 @@
     },
     "redactions": { "type": "array", "items": { "type": "string" } },
     "metadata": { "type": "object", "additionalProperties": true },
-    "bundle_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    "bundle_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["algorithm", "public_key", "signature"],
+        "properties": {
+          "algorithm": { "const": "ed25519" },
+          "public_key": { "type": "string" },
+          "signature": { "type": "string" },
+          "key_id": { "type": "string" },
+          "signed_at": { "type": "string", "format": "date-time" }
+        },
+        "additionalProperties": true
+      }
+    }
   },
   "additionalProperties": true
 }
