@@ -20,6 +20,7 @@ def _stream_output(chunks: list[str], completed: bool) -> dict[str, Any]:
         "streamed": True,
         "truncated": not completed,
         "content": "".join(chunks),
+        "chunks": list(chunks),
     }
 
 
