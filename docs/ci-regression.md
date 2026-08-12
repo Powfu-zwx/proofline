@@ -83,6 +83,8 @@ Record or intentionally update the baseline with `PROOFLINE_UPDATE_BASELINES=1 p
 
 If part of your pipeline is legitimately nondeterministic (live retrieval, sampling above zero), split the pipeline: gate the deterministic stages with `diff`, and assert only invariants (citations resolve, schema of the answer, cost ceilings) on the nondeterministic ones. A bundle records both kinds of steps either way, so the audit trail stays complete even where the gate is soft.
 
+The strongest option is [replay](replay.md): set `PROOFLINE_REPLAY=ci/baseline.run.json` in the CI job and the wrappers serve the baseline's recorded responses instead of calling the provider. The gated stages become fully deterministic, offline, and free — and any remaining diff is attributable to your code, not the model.
+
 ## Environment-dependent fields
 
 Bundles record `invocation.cwd`, `invocation.env_keys`, `actor`, and `project.revision` as evidence. Between your laptop and CI these will differ and show up in the diff. Two options, in order of preference:

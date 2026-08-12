@@ -14,6 +14,7 @@ A run bundle is a single JSON document that records the inputs, code revision, m
 ## Why
 
 - **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, and derived digests never show up as noise; what changed in inputs, outputs, and costs does. See [CI regression gates](docs/ci-regression.md) for the end-to-end recipe.
+- **Replay.** A bundle doubles as a test fixture: recorded responses are served back through the wrappers, so pipelines re-run deterministically, offline, and for free — and diffing a replayed run against its baseline tells you whether a change came from your code or from model drift. See [replay](docs/replay.md).
 - **Audit and forensics.** Bundles are tamper-evident: a stable SHA-256 digest covers everything that can affect replay decisions, and `proofline verify` re-checks every stored hash, redaction path, and secret pattern.
 - **Portability.** A bundle is one JSON file with a published [schema](schemas/run.schema.json) and [spec](spec/run-bundle-v0.1.md). No server, no vendor lock-in.
 
@@ -62,6 +63,18 @@ with RunRecorder(out_path="artifacts/demo.run.json") as recorder:
 Secrets are redacted before anything touches disk: keys like `api_key` / `credentials` and values like `sk-...`, `AKIA...`, `Bearer ...`, or JWTs are replaced with `[REDACTED]`, and each redaction site is recorded as a JSON Pointer in the bundle.
 
 See `examples/rag_citation_check.py` and `examples/code_fix_agent.py` for full agent-shaped runs.
+
+## Replay
+
+Any bundle recorded through the wrappers can answer the same pipeline again — no API key, no network, no cost:
+
+```python
+from proofline.replay import ReplaySource
+
+client = wrap(OpenAI(), recorder, replay=ReplaySource("baseline.run.json"))
+```
+
+Or, with zero code changes, set `PROOFLINE_REPLAY=baseline.run.json` in the environment. Strict matching turns the baseline into a fixture; ordered matching lets a changed pipeline complete so the bundle diff shows exactly what your code changed. [docs/replay.md](docs/replay.md) covers strategies, streaming fidelity, and the attribution workflow.
 
 ## Integrations
 
@@ -115,7 +128,7 @@ with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
   "schema_version": "0.1",
   "run_id": "6f0c0f1e-…",
   "created_at": "2026-08-11T15:00:00.000Z",
-  "actor": {"type": "human+agent", "name": "powfu", "version": "0.1.1"},
+  "actor": {"type": "human+agent", "name": "powfu", "version": "0.2.0"},
   "project": {"name": "proofline", "revision": "9dd5f0a…", "dirty": false},
   "invocation": {"argv": ["python", "agent.py"], "cwd": "…", "env_keys": ["PATH"], "python": "3.11.15"},
   "steps": [
