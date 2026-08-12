@@ -2,6 +2,14 @@
 
 Notable changes to proofline. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow the schema evolution rules in `spec/run-bundle-v0.1.md`.
 
+## 0.3.0
+
+### Added
+
+- Detached Ed25519 signatures (`proofline.sign`, optional `[sign]` extra): the signed payload covers the whole document including volatile fields and `bundle_digest`, so editing anything and re-sealing the digest invalidates the signature. New CLI commands `proofline keygen` and `proofline sign`, plus `proofline verify --signed-by` for key pinning. `verify` validates any signatures a bundle carries.
+- Optional top-level `signatures` field in the schema and spec, excluded from the stable digest and from semantic diffs.
+- Signing guide (`docs/signing.md`) including keyless CI signing and transparency logging via Sigstore.
+
 ## 0.2.0
 
 ### Added
