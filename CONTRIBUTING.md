@@ -41,4 +41,4 @@ Python 3.11+ is required. The core package has zero runtime dependencies; provid
 
 ## Releases
 
-Maintainer checklist: tests green, bump `PACKAGE_VERSION` in `src/proofline/model.py`, build + `twine check`, tag `vX.Y.Z`, push, upload to PyPI, publish the GitHub Release, smoke-test `pip install proofline` in a clean environment.
+Maintainer checklist: tests green, update `CHANGELOG.md`, bump `PACKAGE_VERSION` in `src/proofline/model.py`, tag `vX.Y.Z` and push the tag. The Release workflow builds the distribution and publishes it to PyPI via trusted publishing. Then publish the GitHub Release page and smoke-test `pip install proofline` in a clean environment.
