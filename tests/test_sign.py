@@ -126,9 +126,11 @@ class SignTest(unittest.TestCase):
         return hidden
 
     def test_missing_crypto_dependency_reports_hint(self) -> None:
-        with mock.patch.dict(sys.modules, self._without_crypto()):
-            with self.assertRaisesRegex(RuntimeError, "proofline\\[sign\\]"):
-                generate_keypair(".")
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.dict(sys.modules, self._without_crypto()):
+                with self.assertRaisesRegex(RuntimeError, "proofline\\[sign\\]"):
+                    generate_keypair(directory)
+            self.assertEqual(list(Path(directory).iterdir()), [])
 
     def test_verify_reports_hint_for_signed_bundle_without_crypto(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
