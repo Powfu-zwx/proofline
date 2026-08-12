@@ -35,6 +35,8 @@ Python 3.11+ is required. The core package has zero runtime dependencies; provid
 | `src/proofline/redact.py` | Secret redaction and leak scanning |
 | `src/proofline/verify.py` | Bundle verification |
 | `src/proofline/diff.py` | Semantic diff |
+| `src/proofline/replay.py` | Recorded responses served as test fixtures |
+| `src/proofline/sign.py` | Detached Ed25519 signatures |
 | `src/proofline/_stream.py` | Shared streamed-call step lifecycle |
 | `spec/` | Human-readable protocol spec |
 | `schemas/` | JSON Schema for the bundle format |

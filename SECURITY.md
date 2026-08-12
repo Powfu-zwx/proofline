@@ -11,6 +11,10 @@ This is best-effort, pattern-based protection. It will not catch secrets with un
 
 Treat run bundles as potentially sensitive artifacts: review them before sharing, and prefer digest-plus-reference storage for values you would not commit to a repository.
 
+## What the digest does and does not guarantee
+
+The stable digest detects corruption and careless edits; it does not stop a forger who recomputes it after editing. For tamper evidence, sign bundles (`proofline sign`, see `docs/signing.md`): the signature covers the full document, so re-sealing breaks it. Private key custody is then your responsibility — treat signing keys like deploy keys.
+
 ## Supported versions
 
 Only the latest released minor version receives fixes.

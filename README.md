@@ -15,7 +15,7 @@ A run bundle is a single JSON document that records the inputs, code revision, m
 
 - **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, and derived digests never show up as noise; what changed in inputs, outputs, and costs does. See [CI regression gates](docs/ci-regression.md) for the end-to-end recipe.
 - **Replay.** A bundle doubles as a test fixture: recorded responses are served back through the wrappers, so pipelines re-run deterministically, offline, and for free — and diffing a replayed run against its baseline tells you whether a change came from your code or from model drift. See [replay](docs/replay.md).
-- **Audit and forensics.** Bundles are tamper-evident: a stable SHA-256 digest covers everything that can affect replay decisions, and `proofline verify` re-checks every stored hash, redaction path, and secret pattern.
+- **Audit and forensics.** A stable SHA-256 digest catches corruption and careless edits, and `proofline verify` re-checks every stored hash, redaction path, and secret pattern. [Ed25519 signatures](docs/signing.md) go further: a signed bundle cannot be altered — or re-sealed — without the signer's key.
 - **Portability.** A bundle is one JSON file with a published [schema](schemas/run.schema.json) and [spec](spec/run-bundle-v0.1.md). No server, no vendor lock-in.
 
 ## Non-goals
@@ -76,6 +76,17 @@ client = wrap(OpenAI(), recorder, replay=ReplaySource("baseline.run.json"))
 
 Or, with zero code changes, set `PROOFLINE_REPLAY=baseline.run.json` in the environment. Strict matching turns the baseline into a fixture; ordered matching lets a changed pipeline complete so the bundle diff shows exactly what your code changed. [docs/replay.md](docs/replay.md) covers strategies, streaming fidelity, and the attribution workflow.
 
+## Signing
+
+```bash
+pip install "proofline[sign]"
+proofline keygen --out keys/
+proofline sign run.json --key keys/proofline-signing.pem
+proofline verify run.json --signed-by keys/proofline-signing.pub.pem
+```
+
+The signature covers the entire document — including the fields the stable digest deliberately ignores — so editing anything and re-sealing the digest still breaks it. [docs/signing.md](docs/signing.md) covers the threat model, key handling, and keyless CI signing with Sigstore.
+
 ## Integrations
 
 ### OpenAI
@@ -128,7 +139,7 @@ with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
   "schema_version": "0.1",
   "run_id": "6f0c0f1e-…",
   "created_at": "2026-08-11T15:00:00.000Z",
-  "actor": {"type": "human+agent", "name": "powfu", "version": "0.2.0"},
+  "actor": {"type": "human+agent", "name": "powfu", "version": "0.3.0"},
   "project": {"name": "proofline", "revision": "9dd5f0a…", "dirty": false},
   "invocation": {"argv": ["python", "agent.py"], "cwd": "…", "env_keys": ["PATH"], "python": "3.11.15"},
   "steps": [
@@ -164,7 +175,7 @@ A bundle is portable evidence. Any field that cannot affect replay decisions, su
 Those are observability platforms: hosted dashboards for exploring traces at scale. Proofline is an evidence format: a single verifiable JSON file you can commit to a repo, diff in CI, attach to an incident report, or hand to an auditor. No server, no account, no SDK lock-in. If you already run a tracing platform, proofline is complementary — it is the artifact you keep when a specific run has to be provable.
 
 **Is a bundle proof that the model would answer the same way again?**
-No, and the spec is explicit about this non-goal. A bundle proves what was sent, what came back, what it cost, and that nobody altered the record afterwards. Determinism is your pipeline's job; the [CI recipe](docs/ci-regression.md) shows how to get there where it matters.
+No, and the spec is explicit about this non-goal. A bundle proves what was sent, what came back, and what it cost — and once [signed](docs/signing.md), that nobody altered the record afterwards. Determinism is your pipeline's job; [replay](docs/replay.md) and the [CI recipe](docs/ci-regression.md) show how to get there where it matters.
 
 **Does redaction make bundles safe to share?**
 Redaction is pattern-based and best-effort — it catches well-known key names and token formats before anything touches disk, and `verify` re-scans as a second line of defense. It is not a guarantee; review bundles like any fixture before publishing them. See [SECURITY.md](SECURITY.md) for the exact boundary.
