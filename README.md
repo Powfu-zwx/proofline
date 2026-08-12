@@ -132,6 +132,16 @@ with RunRecorder(out_path="artifacts/anthropic.run.json") as recorder:
 
 `messages.create` is recorded the same way, including `stream=True` event iteration, and `AsyncAnthropic` clients are wrapped by the same `wrap()` call. Run `examples/anthropic_chat.py` for an end-to-end recorded call.
 
+### Pi coding agent
+
+[pi-proofline](https://github.com/Powfu-zwx/pi-proofline) records every [pi](https://pi.dev) agent run as a bundle automatically — provider payloads, assistant messages, and tool executions:
+
+```bash
+pi install git:github.com/Powfu-zwx/pi-proofline
+```
+
+Bundles land in `.proofline/` and verify with this CLI. Its writer is an independent TypeScript port of the canonical JSON and digest rules, held to byte-level parity with this implementation by cross-language tests.
+
 ## Bundle anatomy
 
 ```json
