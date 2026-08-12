@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import platform
 import subprocess
@@ -47,6 +48,13 @@ def _qualify_redactions(paths: list[str], prefix: str) -> list[str]:
 
 
 class RunRecorder:
+    """Record one bounded execution as a verifiable run bundle.
+
+    Steps are recorded with :meth:`step`; :meth:`finalize` seals the bundle
+    with its stable digest and optionally writes it. Instances are not
+    thread-safe: use one recorder per thread of execution.
+    """
+
     def __init__(
         self,
         *,
@@ -102,10 +110,12 @@ class RunRecorder:
     ) -> Iterator[dict[str, Any]]:
         if kind not in STEP_KINDS:
             raise ValueError(f"invalid step kind {kind!r}; expected one of {sorted(STEP_KINDS)}")
-        # Fail here, not in the finally block, where a serialization error would
-        # surface as a confusing crash and could mask an in-flight exception.
+        # Serializing here validates the input before any user code runs (a
+        # failure in the finally block would mask in-flight exceptions) and
+        # freezes a snapshot, so mutating the passed object during the step
+        # cannot alter the recorded evidence.
         try:
-            canonical_json(input)
+            frozen_input = canonical_json(input)
         except (TypeError, ValueError) as exc:
             raise TypeError(
                 f"step input must be strict-JSON-serializable (no NaN/Infinity): {exc}"
@@ -128,7 +138,7 @@ class RunRecorder:
             ended_at = utc_now()
             step_index = len(self.steps)
             step_base = f"/steps/{step_index}"
-            redacted_input, input_redactions = redact(input)
+            redacted_input, input_redactions = redact(json.loads(frozen_input))
             redacted_output, output_redactions = redact(handle.get("output"))
             redacted_cost, cost_redactions = redact(handle.get("cost"))
             redacted_metadata, metadata_redactions = redact(handle.get("metadata") or {})

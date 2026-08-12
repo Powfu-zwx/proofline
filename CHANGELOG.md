@@ -12,7 +12,7 @@ Notable changes to proofline. The format follows [Keep a Changelog](https://keep
 ### Added
 
 - `proofline --version`.
-- `RunRecorder.step` fails fast with a clear `TypeError` when the step input is not JSON-serializable, instead of crashing while the step is being recorded.
+- `RunRecorder.step` fails fast with a clear `TypeError` when the step input is not JSON-serializable, instead of crashing while the step is being recorded, and snapshots the input at entry so mutating the passed object during the step cannot alter the recorded evidence.
 - `proofline.testing.assert_matches_baseline`: snapshot-style baseline assertion for test suites, with `PROOFLINE_UPDATE_BASELINES=1` to re-record.
 - Release workflow publishing to PyPI via trusted publishing on version tags.
 - `proofline run` records the child process stdout/stderr: a SHA-256 digest of the exact bytes plus a capped UTF-8 text preview, echoed byte-exact after completion.

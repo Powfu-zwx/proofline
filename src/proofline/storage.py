@@ -13,6 +13,7 @@ def write_bundle(path: str | Path, bundle: dict[str, Any]) -> Path:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f"{target.name}.tmp")
-    temporary.write_text(json.dumps(bundle, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    serialized = json.dumps(bundle, ensure_ascii=False, indent=2, allow_nan=False)
+    temporary.write_text(serialized + "\n", encoding="utf-8")
     temporary.replace(target)
     return target

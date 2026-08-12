@@ -56,6 +56,16 @@ class RunRecorderTest(unittest.TestCase):
                 pass
         self.assertEqual(recorder.steps, [])
 
+    def test_input_snapshot_is_immune_to_mutation_during_step(self) -> None:
+        recorder = RunRecorder(cwd=".", argv=["demo"])
+        payload = {"prompt": "original"}
+        with recorder.step("custom", "draft", input=payload) as step:
+            payload["prompt"] = "mutated during the step"
+            step["output"] = {"ok": True}
+        bundle = recorder.finalize()
+        self.assertEqual(bundle["steps"][0]["input"], {"prompt": "original"})
+        self.assertEqual(verify_bundle(bundle), [])
+
     def test_nan_input_fails_fast(self) -> None:
         recorder = RunRecorder(cwd=".", argv=["demo"])
         with self.assertRaisesRegex(TypeError, "NaN"):
