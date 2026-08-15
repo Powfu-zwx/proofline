@@ -1,7 +1,7 @@
 # Proofline
 
 [![CI](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml/badge.svg)](https://github.com/Powfu-zwx/proofline/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/proofline.svg)](https://pypi.org/project/proofline/)
+[![PyPI](https://img.shields.io/pypi/v/proofline)](https://pypi.org/project/proofline/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 
@@ -47,7 +47,7 @@ proofline diff a.run.json b.run.json
 # no semantic differences
 ```
 
-Timestamps and run ids differ between the two bundles, but both are excluded from the stable digest and from semantic diffs, so identical work produces an empty diff. For agent-shaped runs with tool, model, and check steps, clone the repo and try `examples/code_fix_agent.py` and `examples/rag_citation_check.py`.
+Timestamps and run ids differ between the two bundles, but both are excluded from the stable digest and from semantic diffs, so identical work produces an empty diff. For agent-shaped runs with tool, model, and check steps, clone the repo and try `examples/code_fix_agent.py` and `examples/rag_citation_check.py`. `examples/semantic_diff_demo.py` walks the same diffs against a naive JSON comparison.
 
 ## SDK
 
@@ -160,7 +160,7 @@ Bundles land in `.proofline/` and verify with this CLI. Its writer is an indepen
   "schema_version": "0.1",
   "run_id": "6f0c0f1e-…",
   "created_at": "2026-08-11T15:00:00.000Z",
-  "actor": {"type": "human+agent", "name": "powfu", "version": "0.3.0"},
+  "actor": {"type": "human+agent", "name": "powfu", "version": "0.4.0"},
   "project": {"name": "proofline", "revision": "9dd5f0a…", "dirty": false},
   "invocation": {"argv": ["python", "agent.py"], "cwd": "…", "env_keys": ["PATH"], "python": "3.11.15"},
   "steps": [

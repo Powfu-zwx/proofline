@@ -17,7 +17,7 @@ ruff check src tests examples
 pytest -q
 ```
 
-Python 3.11+ is required. The core package has zero runtime dependencies; provider integrations live behind optional extras (`[openai]`, `[anthropic]`) and are tested with fakes, so you do not need API keys to run the test suite.
+Python 3.11+ is required. The core package has zero runtime dependencies; provider integrations (`[openai]`, `[anthropic]`) and signing (`[sign]`) live behind extras. Integrations are tested with fakes, so you do not need API keys to run the test suite.
 
 ## Before you open a PR
 
@@ -32,11 +32,13 @@ Python 3.11+ is required. The core package has zero runtime dependencies; provid
 |---|---|
 | `src/proofline/model.py` | Schema constants, canonical JSON, stable digest (single source of truth) |
 | `src/proofline/recorder.py` | `RunRecorder` and step lifecycle |
+| `src/proofline/journal.py` | Crash-safe JSONL journal and `proofline recover` |
 | `src/proofline/redact.py` | Secret redaction and leak scanning |
 | `src/proofline/verify.py` | Bundle verification |
 | `src/proofline/diff.py` | Semantic diff |
 | `src/proofline/replay.py` | Recorded responses served as test fixtures |
 | `src/proofline/sign.py` | Detached Ed25519 signatures |
+| `src/proofline/testing.py` | Baseline assertions for test suites |
 | `src/proofline/_stream.py` | Shared streamed-call step lifecycle |
 | `spec/` | Human-readable protocol spec |
 | `schemas/` | JSON Schema for the bundle format |

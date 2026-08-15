@@ -4,7 +4,7 @@ This guide shows the highest-leverage proofline workflow: record a baseline run 
 
 ## Why this works
 
-`proofline diff` compares two bundles semantically. Run ids, timestamps, and derived digests are excluded by design, so two runs of the same logic produce an empty diff, and any reported difference is a real behavior change: different inputs sent to the model, different outputs, different tool calls, different costs.
+`proofline diff` compares two bundles semantically. Run ids, timestamps, positional step ids, and derived digests are excluded by design, so two runs of the same logic produce an empty diff, and any reported difference is a real behavior change: different inputs sent to the model, different outputs, different tool calls, different costs. Step sequences are aligned first: an inserted or removed step reports once (`added step` / `removed step`) instead of shifting every following step out of alignment.
 
 The gate is only as deterministic as your pipeline. For CI, remove the obvious noise sources first:
 
@@ -32,11 +32,18 @@ proofline verify ci/candidate.run.json
 proofline diff ci/baseline.run.json ci/candidate.run.json
 ```
 
-`diff` exits 1 and prints a pointer-by-pointer report when behavior changed:
+`diff` exits 1 and prints a pointer-by-pointer report when behavior changed. A prompt edit on a matched step looks like:
 
 ```
 $.steps[1].input.messages[0].content: 'old prompt' != 'new prompt'
 $.steps[2].output.text: '...' != '...'
+```
+
+An inserted or removed step reports once, by `(kind, name)`, instead of misaligning the rest of the run:
+
+```
+$.steps: length 3 != 4
+$.steps[2]: added step (tool/extra)
 ```
 
 ## Step 3: wire it into GitHub Actions
