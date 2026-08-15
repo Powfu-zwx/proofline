@@ -2,6 +2,21 @@
 
 Notable changes to proofline. The format follows [Keep a Changelog](https://keepachangelog.com/); versions follow the schema evolution rules in `spec/run-bundle-v0.1.md`.
 
+## 0.4.0
+
+### Added
+
+- Crash-safe journaling (`proofline.journal`, `RunRecorder(..., journal=True)`): every completed step is appended and fsynced to a JSONL journal the moment it finishes, so a process that dies mid-run loses at most the step it was executing. `proofline recover` rebuilds and verifies the bundle from the journal; a torn final line is detected and dropped, a corrupt interior line is a hard error, and the journal is only removed after the bundle write succeeded. `proofline run --journal` records subprocess runs the same way. See `docs/journal.md`.
+- Journal mode streams step payloads to disk instead of accumulating them in memory, so recording a long run costs the memory of the largest step, not of the whole run.
+- `StableDigestBuilder`: the stable digest computed incrementally, one step at a time, without materializing the canonical JSON of the whole document. Bit-identical to `stable_digest` by construction and property test; the digest rules and the TypeScript port's byte-level parity are unchanged.
+- `proofline diff` aligns step sequences before comparing: an inserted or removed step reports once (`added step` / `removed step`) instead of shifting every following step out of alignment, and a changed step pairs with its counterpart by `(kind, name)` to report field-level differences. Positional `step_id`s are treated as derived and excluded, since the alignment lines already describe any shift. Non-step lists keep their element-wise comparison.
+- `examples/semantic_diff_demo.py`: a deterministic, offline guided tour with the naive JSON diff as the control group — identical reruns (20 noise lines vs "no semantic differences"), a one-line prompt change (hash churn vs the exact field), an inserted tool step (one line, not four misaligned steps), and a tamper scene where an edited answer is caught, survives a digest re-seal, and falls to the signature.
+
+### Changed
+
+- Journal mode records `created_at` at recorder construction, so a recovered bundle reports when the run began rather than when it was recovered; memory mode still seals at `finalize()` as before.
+- In journal mode, a step output that is not strict-JSON-serializable fails at the end of that step instead of at `finalize()`, and `Policy.check_write_path` is enforced on the journal path at construction.
+
 ## 0.3.0
 
 ### Added

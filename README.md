@@ -13,7 +13,7 @@ A run bundle is a single JSON document that records the inputs, code revision, m
 
 ## Why
 
-- **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, and derived digests never show up as noise; what changed in inputs, outputs, and costs does. See [CI regression gates](docs/ci-regression.md) for the end-to-end recipe.
+- **Regression testing.** `proofline diff` compares two runs semantically. Run ids, timestamps, positional step ids, and derived digests never show up as noise; what changed in inputs, outputs, and costs does. Step sequences are aligned first, so an inserted or removed step reports once instead of misaligning every step after it. See [CI regression gates](docs/ci-regression.md) for the end-to-end recipe.
 - **Replay.** A bundle doubles as a test fixture: recorded responses are served back through the wrappers, so pipelines re-run deterministically, offline, and for free — and diffing a replayed run against its baseline tells you whether a change came from your code or from model drift. See [replay](docs/replay.md).
 - **Audit and forensics.** A stable SHA-256 digest catches corruption and careless edits, and `proofline verify` re-checks every stored hash, redaction path, and secret pattern. [Ed25519 signatures](docs/signing.md) go further: a signed bundle cannot be altered — or re-sealed — without the signer's key.
 - **Portability.** A bundle is one JSON file with a published [schema](schemas/run.schema.json) and [spec](spec/run-bundle-v0.1.md). No server, no vendor lock-in.
@@ -75,6 +75,17 @@ client = wrap(OpenAI(), recorder, replay=ReplaySource("baseline.run.json"))
 ```
 
 Or, with zero code changes, set `PROOFLINE_REPLAY=baseline.run.json` in the environment. Strict matching turns the baseline into a fixture; ordered matching lets a changed pipeline complete so the bundle diff shows exactly what your code changed. [docs/replay.md](docs/replay.md) covers strategies, streaming fidelity, and the attribution workflow.
+
+## Crash safety
+
+Long agent runs die halfway, and evidence held only in memory dies with them. `journal=True` appends each completed step — fsynced — to a sidecar journal the moment it finishes, and keeps step payloads on disk so memory stays bounded by the largest step, not the run length:
+
+```python
+with RunRecorder(out_path="artifacts/agent.run.json", journal=True) as recorder:
+    ...
+```
+
+If the process is killed mid-run, `proofline recover artifacts/agent.run.json.journal` rebuilds and verifies the bundle from everything that reached disk; a torn final line from the crash is detected and dropped. `proofline run --journal` records subprocess runs the same way. See [docs/journal.md](docs/journal.md) for guarantees, the journal format, and recovery semantics.
 
 ## Signing
 

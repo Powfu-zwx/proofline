@@ -47,6 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="execute a command and record a process bundle")
     run_parser.add_argument("--out", required=True, help="path to write the run bundle")
+    run_parser.add_argument(
+        "--journal",
+        action="store_true",
+        help="append each completed step to a crash journal next to the bundle",
+    )
     run_parser.add_argument("cmd", nargs=argparse.REMAINDER, help="command after --")
 
     verify_parser = subparsers.add_parser("verify", help="validate a run bundle")
@@ -59,6 +64,14 @@ def build_parser() -> argparse.ArgumentParser:
     diff_parser = subparsers.add_parser("diff", help="compare two bundles semantically")
     diff_parser.add_argument("left", help="left bundle path")
     diff_parser.add_argument("right", help="right bundle path")
+
+    recover_parser = subparsers.add_parser(
+        "recover", help="rebuild a run bundle from a crash journal"
+    )
+    recover_parser.add_argument("journal", help="journal path written by RunRecorder(journal=...)")
+    recover_parser.add_argument(
+        "--out", help="bundle path to write (default: journal path without .journal)"
+    )
 
     keygen_parser = subparsers.add_parser("keygen", help="generate an Ed25519 signing keypair")
     keygen_parser.add_argument("--out", default=".", help="directory to write the keypair to")
@@ -79,7 +92,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     returncode = 1
     metadata = {"entrypoint": "proofline run"}
-    with RunRecorder(argv=argv, out_path=args.out, metadata=metadata) as recorder:
+    with RunRecorder(
+        argv=argv,
+        out_path=args.out,
+        metadata=metadata,
+        journal=True if args.journal else None,
+    ) as recorder:
         process_name = Path(argv[0]).name or argv[0]
         with recorder.step("process", process_name, input={"argv": argv}) as handle:
             completed = subprocess.run(argv, check=False, capture_output=True)
@@ -123,6 +141,21 @@ def _cmd_diff(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_recover(args: argparse.Namespace) -> int:
+    from .journal import default_bundle_path, recover
+
+    target = Path(args.out) if args.out else default_bundle_path(args.journal)
+    bundle = recover(args.journal, target)
+    errors = verify_bundle(bundle)
+    if errors:
+        for error in errors:
+            print(error, file=sys.stderr)
+        return 1
+    count = len(bundle["steps"])
+    print(f"recovered {count} step{'s' if count != 1 else ''} -> {target}")
+    return 0
+
+
 def _cmd_keygen(args: argparse.Namespace) -> int:
     from .sign import generate_keypair
 
@@ -149,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_verify(args)
         if args.command == "diff":
             return _cmd_diff(args)
+        if args.command == "recover":
+            return _cmd_recover(args)
         if args.command == "keygen":
             return _cmd_keygen(args)
         if args.command == "sign":

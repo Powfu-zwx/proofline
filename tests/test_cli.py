@@ -118,6 +118,17 @@ class CliRunTest(unittest.TestCase):
             self.assertEqual(step["status"], "error")
             self.assertIn("FileNotFoundError", step["error"])
 
+    def test_run_with_journal_discards_journal_after_success(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "run.json"
+            journal = Path(f"{out}.journal")
+            code, _, _ = _run_main(
+                ["run", "--out", str(out), "--journal", "--", sys.executable, "-c", "print('ok')"]
+            )
+            self.assertEqual(code, 0)
+            self.assertEqual(verify_bundle(out), [])
+            self.assertFalse(journal.exists())
+
 
 class CliVersionTest(unittest.TestCase):
     def test_version_flag_prints_version_and_exits_zero(self) -> None:

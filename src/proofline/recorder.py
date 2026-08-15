@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from .journal import JOURNAL_SUFFIX, JournalWriter, bundle_from_journal
 from .model import (
     PACKAGE_VERSION,
     SCHEMA_VERSION,
@@ -47,12 +48,31 @@ def _qualify_redactions(paths: list[str], prefix: str) -> list[str]:
     return [prefix if path == "/" else f"{prefix}{path}" for path in paths]
 
 
+def _journal_path(
+    journal: bool | str | Path | None, out_path: str | Path | None
+) -> Path | None:
+    if journal is None or journal is False:
+        return None
+    if journal is True:
+        if out_path is None:
+            raise ValueError(
+                "journal=True requires out_path; the journal is written next to the bundle"
+            )
+        return Path(f"{out_path}{JOURNAL_SUFFIX}")
+    return Path(journal)
+
+
 class RunRecorder:
     """Record one bounded execution as a verifiable run bundle.
 
     Steps are recorded with :meth:`step`; :meth:`finalize` seals the bundle
     with its stable digest and optionally writes it. Instances are not
     thread-safe: use one recorder per thread of execution.
+
+    With ``journal=`` set, every completed step is appended (and fsynced) to
+    a crash journal instead of being held in memory; a process that dies
+    mid-run can be rebuilt with :func:`proofline.journal.recover`. Step
+    payloads then live on disk, so memory stays bounded by the largest step.
     """
 
     def __init__(
@@ -64,12 +84,14 @@ class RunRecorder:
         policy: Policy | None = None,
         metadata: dict[str, Any] | None = None,
         out_path: str | Path | None = None,
+        journal: bool | str | Path | None = None,
     ) -> None:
         self.policy = policy or Policy()
         self.cwd = Path(cwd or Path.cwd()).resolve()
         self.out_path = Path(out_path) if out_path else None
         self.run_id = str(uuid.uuid4())
         self.steps: list[dict[str, Any]] = []
+        self._step_count = 0
         self.metadata, metadata_redactions = redact(metadata or {})
         self.redactions = _qualify_redactions(metadata_redactions, "/metadata")
 
@@ -91,6 +113,25 @@ class RunRecorder:
             "name": getpass.getuser(),
             "version": PACKAGE_VERSION,
         }
+        self._journal: JournalWriter | None = None
+        journal_target = _journal_path(journal, out_path)
+        if journal_target is not None:
+            self.policy.check_write_path(journal_target)
+            self._journal = JournalWriter(journal_target)
+            self._journal.write_header(
+                {
+                    "created_at": utc_now(),
+                    "run": {
+                        "schema_version": SCHEMA_VERSION,
+                        "run_id": self.run_id,
+                        "actor": self.actor,
+                        "project": self.project,
+                        "invocation": self.invocation,
+                        "metadata": self.metadata,
+                        "metadata_redactions": self.redactions,
+                    },
+                }
+            )
 
     def __enter__(self) -> RunRecorder:
         return self
@@ -108,6 +149,11 @@ class RunRecorder:
         input: Any = None,
         metadata: dict[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
+        if self._journal is not None and self._journal.closed:
+            raise RuntimeError(
+                "cannot record steps after finalize(); the journal is closed — "
+                "recover the journal or start a new recorder"
+            )
         if kind not in STEP_KINDS:
             raise ValueError(f"invalid step kind {kind!r}; expected one of {sorted(STEP_KINDS)}")
         # Serializing here validates the input before any user code runs (a
@@ -136,7 +182,7 @@ class RunRecorder:
             raise
         finally:
             ended_at = utc_now()
-            step_index = len(self.steps)
+            step_index = self._step_count
             step_base = f"/steps/{step_index}"
             redacted_input, input_redactions = redact(json.loads(frozen_input))
             redacted_output, output_redactions = redact(handle.get("output"))
@@ -159,15 +205,22 @@ class RunRecorder:
                     None if handle.get("output") is None else sha256_json(redacted_output)
                 ),
             }
-            self.steps.append(step)
-            self.redactions.extend(_qualify_redactions(input_redactions, f"{step_base}/input"))
-            self.redactions.extend(_qualify_redactions(output_redactions, f"{step_base}/output"))
-            self.redactions.extend(_qualify_redactions(cost_redactions, f"{step_base}/cost"))
-            self.redactions.extend(
-                _qualify_redactions(metadata_redactions, f"{step_base}/metadata")
-            )
+            step_redactions = [
+                *_qualify_redactions(input_redactions, f"{step_base}/input"),
+                *_qualify_redactions(output_redactions, f"{step_base}/output"),
+                *_qualify_redactions(cost_redactions, f"{step_base}/cost"),
+                *_qualify_redactions(metadata_redactions, f"{step_base}/metadata"),
+            ]
+            if self._journal is not None:
+                self._journal.append_step(step, step_redactions)
+            else:
+                self.steps.append(step)
+            self._step_count += 1
+            self.redactions.extend(step_redactions)
 
     def finalize(self, path: str | Path | None = None) -> dict[str, Any]:
+        if self._journal is not None:
+            return self._finalize_journaled(path)
         bundle = {
             "schema_version": SCHEMA_VERSION,
             "run_id": self.run_id,
@@ -184,4 +237,15 @@ class RunRecorder:
         if target is not None:
             self.policy.check_write_path(target)
             write_bundle(target, bundle)
+        return bundle
+
+    def _finalize_journaled(self, path: str | Path | None) -> dict[str, Any]:
+        """Rebuild the bundle from the journal; the journal only dies after a write."""
+        target = Path(path) if path else self.out_path
+        self._journal.close()
+        bundle = bundle_from_journal(self._journal.path)
+        if target is not None:
+            self.policy.check_write_path(target)
+            write_bundle(target, bundle)
+            self._journal.discard()
         return bundle
